@@ -195,6 +195,12 @@ tbody tr:last-child td{border-bottom:0}
   border-radius:0 0 var(--radius) var(--radius);
   padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));
 }
+html.busy{cursor:progress}
+html.busy::after{content:""; position:fixed; left:0; top:0; height:3px; width:100%; z-index:300;
+  background:linear-gradient(90deg,var(--red),var(--navy),var(--red)); background-size:200% 100%;
+  animation:busyslide 1.1s linear infinite}
+@keyframes busyslide{from{background-position:0 0}to{background-position:200% 0}}
+html.busy .btn{pointer-events:none; opacity:.6}
 .toast{
   position:fixed; left:50%; transform:translateX(-50%); bottom:26px; z-index:200;
   background:var(--navy-ink); color:#fff; padding:10px 18px; border-radius:99px; font-size:.86rem;
@@ -269,17 +275,25 @@ tbody tr:last-child td{border-bottom:0}
   .scrim{position:fixed; inset:0; background:rgba(8,14,24,.5); z-index:55}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="app"></div>
 <script>
 /* ============================================================
-   LEAP Batch 5 — Readiness Tracker (prototype)
-   Komponen nilai: Tugas Modul + Checkpoint 1–4, bobot sama.
-   Tugas yang belum divalidasi mentor dihitung bernilai 1.
-   Data disimpan di localStorage browser ini saja.
+   LEAP Batch 5 — Readiness Tracker
+   Data tersimpan di Supabase. Satu sumber data untuk semua pengguna.
    ============================================================ */
-const KEY='leap5_tracker_v6';
+
+/* ====== ISI DUA BARIS INI DENGAN MILIK ANDA ====== */
+const SUPABASE_URL  = 'https://syvkfnzfirndyeodkarw.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5dmtmbnpmaXJuZHllb2RrYXJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzNjQyMzYsImV4cCI6MjEwNjk0MDIzNn0.57sqrPZoM6wgcGkmVTOaMyVJidzGpZWEcFLT53PALWQ';
+/* ================================================= */
+
+const SB = (SUPABASE_URL.indexOf('http')===0)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+  : null;
+
 const RATE=[
  {v:1,label:'Belum Mampu'},
  {v:2,label:'Mampu Sesuai Standar'},
@@ -287,293 +301,17 @@ const RATE=[
 ];
 const MONTHS=[1,2,3,4];
 const TRACKS={ecourse:'Online E-Course',workshop:'Offline Workshop',live:'Online Live Session',other:'Lainnya'};
-/* 8 modul Bulan 1 beserta tugasnya, disalin dari LEAP_Batch5_Template_Tugas_Peserta1.xlsx */
 const DEFRUB={
   1:'Belum mengerjakan, atau isian dan evidence belum memenuhi yang diminta.',
   2:'Dikerjakan lengkap sesuai yang diminta, evidence sahih dan dapat ditelusuri.',
   3:'Melebihi yang diminta: analisis lebih dalam, dampak terukur, dan sudah menjadi kebiasaan kerja.'
 };
-const MODSEED=[
-{
- no:1, name:'AI for Productivity Booster', track:'workshop',
- fac:'Bp. Paul Soegianto — COO', ses:'15 Okt 2026', due:'2026-10-30',
- comp:'K1 Modern & Forward-Thinking Mindset',
- obj:[
-  'Memakai tools AI untuk mempercepat pekerjaan analisa dan administrasi toko',
-  'Membedakan pekerjaan yang boleh dibantu AI dan yang tetap harus diputuskan sendiri',
-  'Mengecek ulang hasil AI, dan tahu data apa yang tidak boleh dimasukkan'
- ],
- act:[
-  ['Use case 1 — pekerjaan apa','Pekerjaan rutin yang paling menyita waktu Anda.'],
-  ['Use case 1 — tools & cara pakai','Tools apa yang dipakai dan bagaimana Anda memakainya.'],
-  ['Use case 1 — waktu sebelum vs sesudah','Berapa lama biasanya vs setelah dibantu AI. Hemat berapa per minggu.'],
-  ['Use case 2 — pekerjaan apa','Pekerjaan rutin yang paling menyita waktu Anda.'],
-  ['Use case 2 — tools & cara pakai','Tools apa yang dipakai dan bagaimana Anda memakainya.'],
-  ['Use case 2 — waktu sebelum vs sesudah','Berapa lama biasanya vs setelah dibantu AI. Hemat berapa per minggu.'],
-  ['Pemakaian pada Action Plan','Bagian mana dari Action Plan Anda yang disusun atau diperiksa dengan bantuan AI.'],
-  ['Contoh hasil AI yang Anda koreksi','Apa yang salah dari hasil AI dan bagaimana Anda memperbaikinya.'],
-  ['Kepatuhan data','Data apa yang Anda hindari memasukkan, dan alasannya.']
- ],
- ev:[
-  'Tabel 2 use case: pekerjaan, tools, waktu sebelum vs sesudah, hemat per minggu',
-  'Tangkapan layar hasil kerja (data sensitif disamarkan)',
-  'Satu contoh hasil AI yang dikoreksi beserta alasannya'
- ],
- chk:[
-  'Use case masih dipakai saat mentor bertanya di Bulan 2, bukan hanya saat kelas',
-  'Penghematan waktunya wajar, bukan angka asal',
-  'Peserta paham batas data perusahaan yang boleh dipakai',
-  'Hasil AI diperiksa peserta, tidak dipakai mentah'
- ]
-},
-{
- no:2, name:'Business Analysis', track:'workshop',
- fac:'Ivan Suryadi', ses:'15–16 Okt 2026', due:'2026-10-30',
- comp:'K2 Strategic & Critical Thinking',
- obj:[
-  'Membaca laporan sales, stok, shrinkage, dan produktivitas tanpa dibantu',
-  'Menetapkan KPI yang jelas angkanya dan nyambung dengan target toko',
-  'Menyusun target berdasarkan data tahun sebelumnya, bukan perkiraan kasar'
- ],
- act:[
-  ['Pillar prioritas 1 — KPI','Nama pillar, KPI, satuan.'],
-  ['Pillar prioritas 1 — baseline & target','Kondisi awal (angka), target, periode pencapaian.'],
-  ['Pillar prioritas 1 — sumber data & cara ukur','Laporan apa, diambil dari mana, diukur berapa sering.'],
-  ['Pillar prioritas 2 — KPI, baseline, target, sumber data',''],
-  ['Pillar prioritas 3 — KPI, baseline, target, sumber data',''],
-  ['Data historis yang dipakai','Periode berapa bulan, dari laporan apa.'],
-  ['Asumsi di balik target','Kenapa target itu yang dipilih, apa yang diasumsikan.'],
-  ['Hasil pembahasan dengan mentor','Tanggal pembahasan dan apa yang disesuaikan setelahnya.']
- ],
- ev:[
-  'Tabel KPI per pillar: baseline, target, satuan, sumber data, periode ukur',
-  'Lampiran data historis minimal 6 bulan (cetakan laporan atau ekspor sistem)',
-  'Catatan asumsi di balik setiap target'
- ],
- chk:[
-  'KPI betul terukur, bukan kalimat umum',
-  'Target realistis dibanding data historis dan kondisi toko',
-  'Sumber data bisa diakses ulang untuk verifikasi bulanan',
-  'Angka target disetujui mentor sebelum dikunci'
- ]
-},
-{
- no:3, name:'Peran dan Tanggung Jawab Pemimpin', track:'live',
- fac:'Sahat Uli', ses:'26 Okt 2026', due:'2026-11-06',
- comp:'K6 Ownership & Execution Excellence',
- obj:[
-  'Menerjemahkan strategi perusahaan menjadi prioritas kerja di tokonya',
-  'Menjalankan peran Store Manager, dari eksekusi operasional dan analisis kinerja sampai pengembangan tim',
-  'Mengenali kesenjangan kompetensi dirinya dan menyusun rencana pengembangan menuju posisi Store Manager'
- ],
- act:[
-  ['Prioritas perusahaan yang Anda ambil','Dua sampai tiga prioritas strategi perusahaan yang paling menyentuh toko Anda.'],
-  ['Terjemahannya di toko Anda','Untuk setiap prioritas: apa yang berubah di toko Anda, siapa yang mengerjakan, kapan.'],
-  ['Eksekusi operasional — log keputusan shift','Minimal 2 minggu shift Anda sendiri, minimal 10 baris: tanggal, situasi, dan Anda putuskan sendiri / tunda sampai SM datang / eskalasi ke RM.'],
-  ['Keputusan yang Anda tunda atau lempar','Alasannya: memang di luar kewenangan, atau Anda ragu, atau belum tahu caranya. Bedakan ketiganya dengan jujur.'],
-  ['Analisis kinerja — satu KPI yang meleset','KPI apa, selisihnya berapa, penyebabnya apa menurut data, dan apa yang Anda lakukan.'],
-  ['Pengembangan tim — satu orang','Siapa (jabatan saja), apa yang perlu dikembangkan, apa yang Anda lakukan bulan ini, hasilnya.'],
-  ['Penilaian diri atas 7 kompetensi SM','Untuk tiap kompetensi: Level 1 / 2 / 3, beserta bukti singkat kenapa Anda menilai begitu.'],
-  ['Kesenjangan terbesar Anda','Dua kompetensi yang paling lemah dan alasannya, bukan sekadar menyebut nama kompetensi.'],
-  ['Rencana pengembangan 3 bulan','Untuk tiap gap: apa yang Anda kerjakan, dukungan apa yang dibutuhkan, dan apa ukuran berhasilnya.']
- ],
- ev:[
-  'Tabel prioritas perusahaan → tindakan di toko',
-  'Log keputusan shift minimal 10 baris, beserta tanggal',
-  'Analisis 1 KPI yang meleset beserta data pendukungnya',
-  'Catatan sesi coaching atau pengembangan anggota tim',
-  'Lembar penilaian diri atas 7 kompetensi Store Manager',
-  'Rencana pengembangan 3 bulan yang ditandatangani peserta dan mentor'
- ],
- chk:[
-  'Prioritas di toko berdasar pada turunan dari strategi perusahaan',
-  'Log keputusan bersifat objektif',
-  'Keputusan yang ditunda memang karena batas kewenangan, bukan karena ragu atau menghindar',
-  'Analisis KPI memakai data, bukan dugaan',
-  'Pengembangan tim betul terjadi — mentor boleh menanyakan langsung ke orang yang bersangkutan',
-  'Penilaian diri wajar, tidak terlalu tinggi maupun merendah berlebihan',
-  'Rencana pengembangan realistis dan disepakati mentor'
- ]
-},
-{
- no:4, name:'Customer Experience', track:'live',
- fac:'Felly Chandra', ses:'27 Okt 2026', due:'2026-11-06',
- comp:'K1 Modern & Forward-Thinking Mindset',
- obj:[
-  'Membaca keluhan dan perilaku pelanggan sebagai data, bukan kejadian lepas',
-  'Menjaga toko mengikuti tren fashion dan retail yang sedang berjalan'
- ],
- act:[
-  ['Sumber data keluhan','Saluran apa saja yang Anda kumpulkan dan periode datanya.'],
-  ['Rekap per kategori','Kategori keluhan dan jumlahnya. Urutkan dari terbanyak.'],
-  ['Pola terbesar & dugaan penyebabnya','Pola apa yang paling sering muncul, dan apa penyebabnya menurut Anda.'],
-  ['Perbaikan yang dijalankan','Apa yang diperbaiki, kapan mulai, siapa yang mengerjakan.'],
-  ['Angka keluhan sebelum vs sesudah','Jumlah keluhan kategori itu sebelum dan sesudah perbaikan.'],
-  ['Yang Anda simpulkan','Apakah perbaikannya menyentuh penyebab atau hanya meredakan keluhan.']
- ],
- ev:[
-  'Rekap keluhan: jumlah per kategori, periode, sumber',
-  'Satu perbaikan yang dijalankan: apa, kapan, oleh siapa',
-  'Angka keluhan sebelum vs sesudah perbaikan'
- ],
- chk:[
-  'Datanya dari lapangan, bukan dikira-kira',
-  'Perbaikannya menyentuh penyebab, bukan hanya meredakan keluhan',
-  'Mentor melakukan pengamatan langsung di toko sekali',
-  'Angka sebelum–sesudah bisa ditelusuri sumbernya'
- ]
-},
-{
- no:5, name:'Risk Management, Internal Audit & Sysdur (RMIA)', track:'live',
- fac:'Tim RMIA', ses:'28 Okt 2026', due:'2026-11-06',
- comp:'K4 Decision-Making & Problem Solving',
- obj:[
-  'Mengenali risiko operasional di tokonya dan menentukan cara penanganannya',
-  'Menjalankan kontrol internal sesuai SOP, Peraturan Perusahaan, dan Code of Conduct, termasuk pengendalian shrinkage',
-  'Membangun budaya integritas dan kesiapan tanggap darurat di tokonya'
- ],
- act:[
-  ['Register risiko toko Anda','Daftar risiko operasional beserta kemungkinan (rendah/sedang/tinggi) dan dampaknya.'],
-  ['Cara penanganan tiap risiko','Untuk tiap risiko: dihindari, dikurangi, dialihkan, atau diterima — beserta alasannya.'],
-  ['Tiga risiko teratas & pemiliknya','Risiko mana yang diprioritaskan dan siapa penanggung jawabnya.'],
-  ['Hasil pemeriksaan kontrol internal','Periksa pelaksanaan SOP kunci di toko Anda. Mana yang berjalan, mana yang tidak, dan kenapa.'],
-  ['Shrinkage','Angka shrinkage terkini, penyebab yang paling dominan, dan langkah pengendalian yang Anda jalankan.'],
-  ['Peraturan Perusahaan & Code of Conduct','Bagaimana dan kapan Anda menyosialisasikan ke tim. Sertakan satu situasi integritas yang pernah Anda hadapi dan bagaimana Anda menanganinya.'],
-  ['Kesiapan tanggap darurat','Hasil pemeriksaan jalur evakuasi, APAR, P3K, dan kontak darurat. Temuan apa yang muncul.'],
-  ['Perbaikan yang dijalankan','Minimal 1 temuan yang sudah Anda tindaklanjuti: apa, kapan, hasilnya.'],
-  ['Kaitan ke Action Plan 7 Pillar','Risiko mana yang bisa menggagalkan rencana Anda, dan mitigasinya.']
- ],
- ev:[
-  'Register risiko: risiko, kemungkinan, dampak, cara penanganan, pemilik',
-  'Hasil pemeriksaan kepatuhan SOP di toko',
-  'Data shrinkage dari laporan resmi — sebelum dan sesudah langkah pengendalian',
-  'Bukti sosialisasi Peraturan Perusahaan / Code of Conduct (daftar hadir, foto, atau notulen)',
-  'Checklist kesiapan tanggap darurat + foto kondisi',
-  'Kolom risiko & mitigasi yang sudah terisi pada Action Plan 7 Pillar'
- ],
- chk:[
-  'Risikonya sesuai kondisi nyata toko dan temuan audit, bukan daftar umum',
-  'Cara penanganannya masuk akal dengan sumber daya yang ada',
-  'Kontrol internal betul dijalankan, bukan hanya ada dokumennya',
-  'Angka shrinkage berasal dari laporan resmi dan bisa ditelusuri',
-  'Tim tahu isi Code of Conduct — mentor boleh menanyakan langsung ke 1–2 anggota tim',
-  'Perlengkapan darurat betul diperiksa, bukan disalin dari checklist lama',
-  'Peserta menindaklanjuti temuan sendiri, tidak menunggu diperintah'
- ]
-},
-{
- no:6, name:'Employee & Industrial Relation', track:'live',
- fac:'Fuad Darmawan', ses:'29 Okt 2026', due:'2026-11-13',
- comp:'K3 Leadership & People Management',
- obj:[
-  'Menangani pelanggaran SOP dengan langkah yang benar secara prosedural',
-  'Tahu kapan harus melibatkan Region Manager dan HR, dan kapan cukup ditangani di toko'
- ],
- act:[
-  ['Kasus 1 — uraian singkat','Tanpa menyebut nama karyawan. Cukup jabatan dan kronologi.'],
-  ['Kasus 1 — langkah yang seharusnya & dasar ketentuannya','Urutan langkah dan aturan yang mendasarinya.'],
-  ['Kasus 2 — uraian singkat',''],
-  ['Kasus 2 — langkah yang seharusnya & dasar ketentuannya',''],
-  ['Kasus yang Anda tangani sendiri','Kasus mana, kapan, langkah apa yang Anda ambil.'],
-  ['Kapan Anda melibatkan mentor atau HR','Titik mana yang Anda nilai di luar kewenangan Anda, dan alasannya.'],
-  ['Dokumentasi yang Anda buat','Dokumen apa saja yang dihasilkan dari penanganan itu.']
- ],
- ev:[
-  'Uraian 2 kasus + langkah yang benar + dasar ketentuan (tanpa nama karyawan)',
-  'Bukti penanganan 1 kasus: berita acara, catatan pembinaan, atau dokumen sejenis',
-  'Catatan kapan mentor atau HR dilibatkan'
- ],
- chk:[
-  'Langkahnya sesuai ketentuan, terutama urutan pembinaan sebelum sanksi',
-  'Dokumentasinya layak dipakai bila kasus berlanjut',
-  'Peserta tahu batas kewenangannya',
-  'Kerahasiaan karyawan terjaga — bila kasus sensitif, mentor cukup menyatakan sah tanpa merinci'
- ]
-},
-{
- no:7, name:'E Bazaar', track:'live',
- fac:'Fuad Darmawan', ses:'29 Okt 2026', due:'2026-11-13',
- comp:'K5 Innovation & Change Leadership',
- obj:[
-  'Menjalankan mekanisme E Bazaar sesuai ketentuan',
-  'Memakai E Bazaar sebagai cara mendorong sales, bukan sekadar menjalankan program'
- ],
- act:[
-  ['Rencana kegiatan','Konsep kegiatan, tanggal, lokasi di toko.'],
-  ['Target sales & dasar perhitungannya','Angka target dan dari mana angka itu diambil.'],
-  ['Kebutuhan','Tempat, barang, orang, biaya.'],
-  ['Pihak yang dikoordinasikan','Siapa saja, untuk urusan apa.'],
-  ['Jalur pengajuan & tindak lanjut','Kapan diajukan, ke siapa, kapan Anda menindaklanjuti.'],
-  ['Status pengajuan terakhir','Disetujui / diproses / ditolak, beserta alasannya.'],
-  ['Hasil bila sudah terlaksana','Sales aktual vs target, dan apa yang berbeda dari rencana.']
- ],
- ev:[
-  'Proposal kegiatan 1 halaman: target, tanggal, kebutuhan, pihak terkait',
-  'Bukti koordinasi (email, chat resmi, atau notulen)',
-  'Laporan hasil bila sudah terlaksana; bila belum, status pengajuan terakhir'
- ],
- chk:[
-  'Target sales-nya berdasar, bukan angka bulat asal',
-  'Peserta mengurus koordinasinya sendiri, tidak menumpang mentor',
-  'Tindak lanjutnya berjalan, tidak berhenti setelah diajukan',
-  'Kebutuhan dan biaya dihitung, bukan diperkirakan kasar'
- ]
-},
-{
- no:8, name:'Finance Operation', track:'live',
- fac:'Elny Santi', ses:'30 Okt 2026', due:'2026-11-13',
- comp:'K6 Ownership & Execution Excellence',
- obj:[
-  'Mengikuti alur transaksi, kontrol kas, dan pelaporan keuangan toko',
-  'Mengenali titik yang rawan selisih dan berdampak ke EBIT'
- ],
- act:[
-  ['Hasil pemeriksaan alur transaksi','Bagian mana yang sudah sesuai ketentuan, bagian mana yang tidak.'],
-  ['Titik rawan 1','Titik apa, alasannya (kejadian nyata atau temuan audit), potensi dampak ke EBIT.'],
-  ['Titik rawan 2','Titik apa, alasannya (kejadian nyata atau temuan audit), potensi dampak ke EBIT.'],
-  ['Titik rawan 3','Titik apa, alasannya (kejadian nyata atau temuan audit), potensi dampak ke EBIT.'],
-  ['Titik yang Anda perbaiki','Titik mana, apa yang diubah, kapan mulai.'],
-  ['Selisih sebelum vs sesudah','Angka selisih 2 minggu sebelum dan 2 minggu sesudah perbaikan.'],
-  ['Apakah perbaikannya bertahan','Kondisi saat tugas dikumpulkan.']
- ],
- ev:[
-  'Daftar 3 titik rawan: titik, alasan, potensi dampak ke EBIT',
-  'Bukti perbaikan 1 titik kontrol',
-  'Angka selisih sebelum vs sesudah selama 2 minggu'
- ],
- chk:[
-  'Titik rawannya sesuai temuan audit atau kejadian nyata di toko',
-  'Dampaknya dihitung, bukan hanya disebut besar',
-  'Perbaikannya bertahan, tidak kembali longgar setelah 2 minggu',
-  'Angka selisih bisa ditelusuri ke laporan resmi'
- ]
-}
-];
-function buildModules(){
-  const modules=[], tasks=[];
-  MODSEED.forEach(function(m){
-    const mid=uid('md');
-    modules.push({id:mid,name:m.name,track:m.track,facilitator:m.fac,session:m.ses,competency:m.comp,order:m.no});
-    tasks.push({
-      id:uid('t'), scope:'mod', moduleId:mid,
-      code:'TUGAS '+m.no, title:m.name, due:m.due,
-      obj:m.obj.slice(),
-      act:m.act.map((a,i)=>({id:'a'+(i+1),label:a[0],guide:a[1]})),
-      ev:m.ev.map((e,i)=>({id:'e'+(i+1),label:e})),
-      chk:m.chk.map((c,i)=>({id:'c'+(i+1),label:c})),
-      rubric:{1:DEFRUB[1],2:DEFRUB[2],3:DEFRUB[3]}
-    });
-  });
-  return {modules:modules,tasks:tasks};
-}
-
 
 /* ---------- utils ---------- */
 const $=s=>document.querySelector(s);
-const uid=p=>p+Math.random().toString(36).slice(2,8);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const BL=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-function fdate(iso){ if(!iso) return '—'; const d=new Date(iso+'T00:00:00'); if(isNaN(d)) return '—';
+function fdate(iso){ if(!iso) return '—'; const d=new Date(String(iso).slice(0,10)+'T00:00:00'); if(isNaN(d)) return '—';
   return d.getDate()+' '+BL[d.getMonth()]+' '+d.getFullYear(); }
 function fstamp(iso){ if(!iso) return '—'; const d=new Date(iso); if(isNaN(d)) return '—';
   return d.getDate()+' '+BL[d.getMonth()]+' '+d.getFullYear()+', '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
@@ -582,80 +320,91 @@ function avg(a){ return a.length? a.reduce((x,y)=>x+y,0)/a.length : null; }
 function n1(x){ return x==null?'—':(Math.round(x*100)/100).toFixed(2); }
 function kb(n){ return n?Math.round(n/1024)+' KB':''; }
 
-/* ---------- seed ---------- */
-function seed(){
-  const users=[{id:uid('u'),username:'admin',password:'admin123',role:'admin',refId:null,name:'Program Manager'}];
-  const built=buildModules();
-  const modules=built.modules;
-  const tasks=built.tasks.concat([
-    {id:uid('t'),scope:'cp',cp:1,code:'T1',title:'Business Outcome & Success Indicator',
-     desc:'Tetapkan outcome bisnis toko dan indikator keberhasilannya, lengkap dengan angka baseline.',due:'2026-10-30',accept:'both'},
-    {id:uid('t'),scope:'cp',cp:1,code:'T2',title:'Root Cause Analysis',
-     desc:'Uraikan akar masalah di balik indikator yang belum tercapai memakai 5 Whys atau fishbone.',due:'2026-10-30',accept:'both'},
-    {id:uid('t'),scope:'cp',cp:1,code:'T3',title:'Project Charter & DFV Assessment',
-     desc:'Susun Project Charter inisiatif perbaikan dan nilai Desirability, Feasibility, Viability-nya.',due:'2026-11-06',accept:'file'},
-    {id:uid('t'),scope:'cp',cp:2,code:'T4',title:'Action Plan 3 Pilar Prioritas',
-     desc:'Rencana aksi untuk tiga pilar prioritas: target, timeline, dan penanggung jawab.',due:'2026-11-20',accept:'both'}
-  ]);
+/* ---------- state ---------- */
+let ME=null;          // profil pengguna yang sedang masuk
+let BUSY=false;
+let S=emptyState();
+function emptyState(){
   return {
-    version:6,
-    session:null,
-    users, mentors:[], participants:[], modules, tasks,
-    checkpoints:[
-      {m:1,name:'Checkpoint 1 — Kesiapan',start:'2026-10-24',end:'2026-10-31'},
-      {m:2,name:'Checkpoint 2 — 3 Pilar Prioritas',start:'2026-11-25',end:'2026-11-30'},
-      {m:3,name:'Checkpoint 3 — 4 Pilar Sisanya',start:'2026-12-15',end:'2026-12-31'},
-      {m:4,name:'Checkpoint 4 — Seluruh 7 Pilar',start:'2027-01-20',end:'2027-01-31'}
-    ],
-    submissions:{},
-    assessments:{},
-    settings:{thBelum:1.6,thSiap:2.0},
-    timeline:{
-      groups:['Learning','Execution','Mentor','Assessment'],
-      items:[
-        {id:uid('x'),g:'Learning',row:'Online E-Course',start:'2026-10-01',end:'2026-10-08',kind:'bar',style:'navy',note:'1–8 Okt'},
-        {id:uid('x'),g:'Learning',row:'Offline Training',start:'2026-10-09',end:'2026-10-15',kind:'bar',style:'navy',note:'9–15 Okt · Tangerang'},
-        {id:uid('x'),g:'Learning',row:'Store Visit',start:'2026-10-10',end:'2026-10-10',kind:'milestone',style:'navy',note:'10 Okt · MDS Atrium'},
-        {id:uid('x'),g:'Learning',row:'In-Store Application',start:'2026-10-19',end:'2026-10-24',kind:'bar',style:'navy',note:'19–24 Okt · Project Charter & DFV'},
-        {id:uid('x'),g:'Learning',row:'Online Live Session',start:'2026-10-26',end:'2026-10-30',kind:'bar',style:'navy',note:'26–30 Okt'},
-        {id:uid('x'),g:'Execution',row:'Phase 1 · Top 3',start:'2026-11-01',end:'2026-11-30',kind:'bar',style:'soft',note:'November'},
-        {id:uid('x'),g:'Execution',row:'Phase 2 · Other 4',start:'2026-12-01',end:'2026-12-31',kind:'bar',style:'soft',note:'Desember'},
-        {id:uid('x'),g:'Execution',row:'Consolidation',start:'2027-01-01',end:'2027-01-22',kind:'bar',style:'soft',note:'Submit 22 Jan'},
-        {id:uid('x'),g:'Mentor',row:'Bi-weekly Mentoring',start:'2026-11-01',end:'2027-01-31',kind:'bar',style:'mentor',note:'November – Januari'},
-        {id:uid('x'),g:'Mentor',row:'Advisory Session',start:'2027-01-12',end:'2027-01-16',kind:'bar',style:'red',note:'12–16 Jan'},
-        {id:uid('x'),g:'Mentor',row:'Mentor Checklist',start:'2026-10-31',end:'2026-10-31',kind:'milestone',style:'red',note:'M1'},
-        {id:uid('x'),g:'Mentor',row:'Mentor Checklist',start:'2026-11-30',end:'2026-11-30',kind:'milestone',style:'red',note:'M2'},
-        {id:uid('x'),g:'Mentor',row:'Mentor Checklist',start:'2026-12-31',end:'2026-12-31',kind:'milestone',style:'red',note:'M3'},
-        {id:uid('x'),g:'Mentor',row:'Mentor Checklist',start:'2027-01-31',end:'2027-01-31',kind:'milestone',style:'red',note:'M4'},
-        {id:uid('x'),g:'Assessment',row:'Deadline Tugas',start:'2026-10-30',end:'2026-10-30',kind:'milestone',style:'red',note:'T1–2'},
-        {id:uid('x'),g:'Assessment',row:'Deadline Tugas',start:'2026-11-06',end:'2026-11-06',kind:'milestone',style:'red',note:'T3–5'},
-        {id:uid('x'),g:'Assessment',row:'Deadline Tugas',start:'2026-11-13',end:'2026-11-13',kind:'milestone',style:'red',note:'T6–8'},
-        {id:uid('x'),g:'Assessment',row:'Checkpoint',start:'2026-11-25',end:'2026-11-26',kind:'bar',style:'red',note:'CP1 · 25–26 Nov'},
-        {id:uid('x'),g:'Assessment',row:'Checkpoint',start:'2026-12-15',end:'2026-12-16',kind:'bar',style:'red',note:'CP2 · 15–16 Des'},
-        {id:uid('x'),g:'Assessment',row:'Final Panel',start:'2027-01-27',end:'2027-01-28',kind:'bar',style:'red',note:'27–28 Jan 2027'}
-      ]
-    }
+    mentors:[], participants:[], modules:[], tasks:[], checkpoints:[],
+    submissions:{}, assessments:{},
+    timeline:{groups:['Learning','Execution','Mentor','Assessment'],items:[]},
+    settings:{thBelum:1.6,thSiap:2.0}
   };
 }
-
-/* ---------- state ---------- */
-let S=load();
-function load(){
-  try{ const raw=localStorage.getItem(KEY); if(raw){ const o=JSON.parse(raw); if(o&&o.version===6) return o; } }catch(e){}
-  const s=seed(); try{ localStorage.setItem(KEY,JSON.stringify(s)); }catch(e){} return s;
-}
-function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ toast('Penyimpanan browser penuh. Ekspor data Anda.'); } }
 function toast(msg){
   const old=document.querySelector('.toast'); if(old) old.remove();
   const d=document.createElement('div'); d.className='toast'; d.textContent=msg; document.body.appendChild(d);
-  setTimeout(()=>d.remove(),2600);
+  setTimeout(()=>d.remove(),2800);
+}
+function setBusy(on){ BUSY=on; document.documentElement.classList.toggle('busy',!!on); }
+
+/* ---------- memuat seluruh data dari Supabase ---------- */
+async function loadAll(){
+  const r=await Promise.all([
+    SB.from('profiles').select('*'),
+    SB.from('modules').select('*'),
+    SB.from('tasks').select('*'),
+    SB.from('checkpoints').select('*').order('m'),
+    SB.from('submissions').select('*'),
+    SB.from('assessments').select('*'),
+    SB.from('timeline_items').select('*').order('sort'),
+    SB.from('settings').select('*').eq('id',1).maybeSingle()
+  ]);
+  const bad=r.find(x=>x.error);
+  if(bad) throw bad.error;
+  const [prof,mods,tsk,cps,subs,ass,tl,set]=r;
+  const N=emptyState();
+  (prof.data||[]).forEach(function(p){
+    if(p.role==='mentor') N.mentors.push({id:p.id,name:p.name,region:p.region||'',email:p.email||''});
+    else if(p.role==='peserta') N.participants.push({
+      id:p.id,name:p.name,store:p.store||'',mentorId:p.mentor_id,email:p.email||'',
+      pillars2:(p.pillars2&&p.pillars2.length)?p.pillars2:['','',''],
+      pillars3:(p.pillars3&&p.pillars3.length)?p.pillars3:['','','','']
+    });
+  });
+  N.modules=(mods.data||[]).map(m=>({id:m.id,name:m.name,track:m.track,facilitator:m.facilitator||'',
+    session:m.session||'',competency:m.competency||'',order:m.order_no}));
+  N.tasks=(tsk.data||[]).map(t=>({id:t.id,scope:t.scope,moduleId:t.module_id,cp:t.cp,code:t.code,title:t.title,
+    desc:t.description||'',due:t.due?String(t.due).slice(0,10):'',accept:t.accept||'both',
+    obj:t.obj||[],act:t.act||[],ev:t.ev||[],chk:t.chk||[],rubric:t.rubric||{}}));
+  N.checkpoints=(cps.data||[]).map(c=>({m:c.m,name:c.name,
+    start:String(c.start_date).slice(0,10),end:String(c.end_date).slice(0,10)}));
+  (subs.data||[]).forEach(function(s){
+    N.submissions[s.task_id+'|'+s.participant_id]={
+      answers:s.answers||{},evid:s.evid||{},versions:s.versions||[],
+      submitCount:s.submit_count||0,submittedAt:s.submitted_at,validation:s.validation||null};
+  });
+  (ass.data||[]).forEach(function(a){
+    N.assessments[a.participant_id+'|'+a.component]={
+      summary:a.summary||'',follow:a.follow_up||'',savedAt:a.saved_at,late:!!a.late};
+  });
+  N.timeline.items=(tl.data||[]).map(i=>({id:i.id,g:i.grp,row:i.row_label,
+    start:String(i.start_date).slice(0,10),end:String(i.end_date).slice(0,10),
+    kind:i.kind,style:i.style,note:i.note||''}));
+  if(set.data) N.settings={thBelum:Number(set.data.th_belum),thSiap:Number(set.data.th_siap)};
+  S=N;
 }
 
+/* ---------- pembungkus setiap penyimpanan ---------- */
+async function tx(fn,msg){
+  if(BUSY) return;
+  setBusy(true);
+  try{
+    await fn();
+    await loadAll();
+    render();
+    if(msg) toast(msg);
+  }catch(e){
+    console.error(e);
+    alert('Gagal menyimpan.\n\n'+(e.message||e)+'\n\nPerubahan tidak tersimpan. Coba lagi, atau periksa koneksi Anda.');
+  }finally{ setBusy(false); }
+}
 /* ---------- lookups ---------- */
-const me=()=>S.users.find(u=>u.id===S.session)||null;
-const role=()=>{const u=me(); return u?u.role:null;};
-const myMentorId=()=>{const u=me(); return u&&u.role==='mentor'?u.refId:null;};
-const myPid=()=>{const u=me(); return u&&u.role==='peserta'?u.refId:null;};
+const me=()=>ME;
+const role=()=>ME?ME.role:null;
+const myMentorId=()=>(ME&&ME.role==='mentor')?ME.id:null;
+const myPid=()=>(ME&&ME.role==='peserta')?ME.id:null;
 const P=id=>S.participants.find(x=>x.id===id);
 const M=id=>S.mentors.find(x=>x.id===id);
 const T=id=>S.tasks.find(x=>x.id===id);
@@ -750,7 +499,7 @@ window.addEventListener('hashchange',render);
    ============================================================ */
 function render(){
   const app=$('#app');
-  if(!S.session){ app.innerHTML=viewLogin(); bind(); return; }
+  if(!ME){ app.innerHTML=viewLogin(); bind(); return; }
   const parts=(location.hash||'#/ringkasan').replace(/^#\//,'').split('/');
   let body='';
   try{ body=route(parts,role()); }
@@ -808,10 +557,10 @@ function viewLogin(err){
     '<p class="muted" style="margin:0 0 20px">Pencatatan kesiapan bulanan peserta, dari Assistant Store Manager ke Store Manager.</p>'+
     '<div class="card"><div class="bd">'+
     (err?'<div class="err">'+esc(err)+'</div>':'')+
-    '<label class="f"><span>Nama pengguna</span><input type="text" id="lu" autocomplete="username" autocapitalize="none"></label>'+
+    '<label class="f"><span>Email</span><input type="email" id="lu" autocomplete="username" autocapitalize="none"></label>'+
     '<label class="f"><span>Kata sandi</span><input type="password" id="lp" autocomplete="current-password"></label>'+
     '<button class="btn" data-act="login" style="width:100%; justify-content:center">Masuk</button>'+
-    '<div class="demo">Masuk sebagai admin: <code>admin / admin123</code>. Akun mentor dan peserta dibuat dari halaman admin.</div>'+
+    '<div class="demo">Akun dibuat oleh admin program. Lupa kata sandi, hubungi admin.</div>'+
     '</div></div></div></div>';
 }
 
@@ -873,14 +622,11 @@ function viewParticipantList(){
       '<td class="mono-num"><strong>'+n1(sc)+'</strong></td>'+
       '<td><span class="pill '+rd.cls+'">'+rd.label+'</span></td>'+
       '<td>'+(own?'<span class="pill done">Dapat dinilai</span>':'<span class="pill flat">Hanya lihat</span>')+'</td>'+
-      (r==='admin'?'<td class="row"><button class="btn ghost sm" data-act="ped" data-id="'+p.id+'">Ubah</button>'+
-        '<button class="btn ghost sm" data-act="pdel" data-id="'+p.id+'">Hapus</button></td>':'')+'</tr>';
+      (r==='admin'?'<td class="row"><button class="btn ghost sm" data-act="ped" data-id="'+p.id+'">Ubah</button></td>':'')+'</tr>';
   }).join('');
-  const addBtn=r==='admin'?(noMentor
-    ?'<a class="btn ghost" href="#/mentor">Tambah mentor dulu</a>'
-    :'<button class="btn" data-act="pnew">Tambah peserta</button>'):'';
+  const addBtn='';
   const emptyMsg=r==='admin'
-    ?(noMentor?'Tambahkan mentor lebih dulu, lalu peserta dapat ditugaskan kepada mentornya.':'Gunakan tombol Tambah peserta untuk mengisi daftar.')
+    ?'Akun peserta dibuat dari dashboard Supabase untuk sementara ini.'
     :'Admin program belum memasukkan daftar peserta.';
   return '<div class="pagehead spread"><div><h1>Peserta</h1>'+
     '<p>'+(r==='mentor'?'Anda dapat melihat seluruh peserta, namun hanya dapat menilai mentee Anda sendiri.':'Kelola daftar peserta dan penugasan mentornya.')+'</p></div>'+addBtn+'</div>'+
@@ -888,18 +634,17 @@ function viewParticipantList(){
     '<thead><tr><th>Peserta</th><th>Mentor</th><th>Total</th><th>Status</th><th>Akses</th>'+(r==='admin'?'<th></th>':'')+'</tr></thead>'+
     '<tbody>'+(rows||'<tr><td colspan="6"><div class="empty"><strong>Belum ada peserta</strong>'+emptyMsg+'</div></td></tr>')+
     '</tbody></table></div></div></div>'+
-    (r==='admin'&&!noMentor?formParticipant():'');
+    (r==='admin'?akunNote():'')+(r==='admin'?formParticipant():'');
 }
 function formParticipant(){
-  const opts=S.mentors.map(m=>'<option value="'+m.id+'">'+esc(m.name)+' — '+esc(m.region)+'</option>').join('');
+  const opts='<option value="">— belum ditetapkan —</option>'+
+    S.mentors.map(m=>'<option value="'+m.id+'">'+esc(m.name)+' — '+esc(m.region)+'</option>').join('');
   return '<div class="card" id="pform" style="display:none; margin-top:16px"><div class="hd"><h3 id="pformtitle">Tambah peserta</h3></div>'+
   '<div class="bd"><input type="hidden" id="pf_id">'+
     '<div class="grid g2">'+
       '<label class="f"><span>Nama lengkap</span><input type="text" id="pf_name"></label>'+
       '<label class="f"><span>Toko</span><input type="text" id="pf_store"></label>'+
       '<label class="f"><span>Mentor</span><select id="pf_mentor">'+opts+'</select></label>'+
-      '<label class="f"><span>Nama pengguna untuk masuk</span><input type="text" id="pf_user" autocapitalize="none"></label>'+
-      '<label class="f"><span>Kata sandi</span><input type="text" id="pf_pass" value="peserta123"></label>'+
     '</div>'+
     '<div class="row"><button class="btn" data-act="psave">Simpan peserta</button>'+
       '<button class="btn ghost" data-act="pcancel">Batal</button></div></div></div>';
@@ -914,23 +659,19 @@ function viewMentorList(){
       '<td class="small">'+esc(m.email||'—')+'</td>'+
       '<td>'+ment.length+' peserta'+(ment.length?'<div class="small muted">'+ment.map(p=>esc(p.name)).join(', ')+'</div>':'')+'</td>'+
       '<td class="mono-num">'+n1(sc)+'</td>'+
-      '<td class="row"><button class="btn ghost sm" data-act="med" data-id="'+m.id+'">Ubah</button>'+
-      '<button class="btn ghost sm" data-act="mdel" data-id="'+m.id+'">Hapus</button></td></tr>';
+      '<td class="row"><button class="btn ghost sm" data-act="med" data-id="'+m.id+'">Ubah</button></td></tr>';
   }).join('');
-  return '<div class="pagehead spread"><div><h1>Mentor</h1><p>Satu mentor dapat memegang lebih dari satu peserta.</p></div>'+
-    '<button class="btn" data-act="mnew">Tambah mentor</button></div>'+
+  return '<div class="pagehead"><h1>Mentor</h1><p>Satu mentor dapat memegang lebih dari satu peserta.</p></div>'+
     '<div class="card"><div class="bd tight"><div class="tscroll"><table>'+
     '<thead><tr><th>Mentor</th><th>Email</th><th>Mentee</th><th>Rata-rata mentee</th><th></th></tr></thead>'+
-    '<tbody>'+(rows||'<tr><td colspan="5"><div class="empty"><strong>Belum ada mentor</strong>Tambahkan Region Manager yang akan memegang peserta.</div></td></tr>')+
-    '</tbody></table></div></div></div>'+
+    '<tbody>'+(rows||'<tr><td colspan="5"><div class="empty"><strong>Belum ada mentor</strong>Akun mentor dibuat dari dashboard Supabase untuk sementara ini.</div></td></tr>')+
+    '</tbody></table></div></div></div>'+akunNote()+
     '<div class="card" id="mform" style="display:none; margin-top:16px"><div class="hd"><h3 id="mformtitle">Tambah mentor</h3></div>'+
     '<div class="bd"><input type="hidden" id="mf_id">'+
       '<div class="grid g2">'+
         '<label class="f"><span>Nama lengkap</span><input type="text" id="mf_name"></label>'+
         '<label class="f"><span>Region</span><input type="text" id="mf_region"></label>'+
         '<label class="f"><span>Email</span><input type="text" id="mf_email"></label>'+
-        '<label class="f"><span>Nama pengguna untuk masuk</span><input type="text" id="mf_user" autocapitalize="none"></label>'+
-        '<label class="f"><span>Kata sandi</span><input type="text" id="mf_pass" value="mentor123"></label>'+
       '</div>'+
       '<div class="row"><button class="btn" data-act="msave">Simpan mentor</button>'+
       '<button class="btn ghost" data-act="mcancel">Batal</button></div></div></div>';
@@ -1052,19 +793,22 @@ function viewCheckpoints(){
 
 /* ---------- pengaturan data ---------- */
 function viewSettings(){
-  return '<div class="pagehead"><h1>Pengaturan data</h1>'+
-    '<p>Prototype ini menyimpan data di browser Anda sendiri. Ekspor berkala jika Anda ingin memindahkan isian ke perangkat lain.</p></div>'+
+  return '<div class="pagehead"><h1>Data &amp; akun</h1>'+
+    '<p>Seluruh data aplikasi kini tersimpan di Supabase, bukan lagi di browser. Semua orang yang masuk melihat data yang sama.</p></div>'+
     '<div class="card"><div class="bd stack">'+
-      '<div><h3>Cadangkan dan pulihkan</h3>'+
-        '<p class="small muted">Ekspor menghasilkan satu berkas JSON berisi seluruh peserta, mentor, modul, tugas, kiriman, dan penilaian.</p>'+
-        '<div class="row"><button class="btn" data-act="export">Ekspor data</button>'+
-        '<button class="btn ghost" data-act="importpick">Impor data</button>'+
-        '<input type="file" id="impfile" accept="application/json" style="display:none"></div></div>'+
-      '<div style="border-top:1px solid var(--line); padding-top:16px">'+
-        '<h3>Mulai ulang</h3>'+
-        '<p class="small muted">Mengembalikan seluruh isi ke kondisi awal. Peserta, mentor, kiriman, dan penilaian akan hilang.</p>'+
-        '<button class="btn danger" data-act="reset">Hapus semua dan mulai ulang</button></div>'+
+      '<div><h3>Menambah mentor dan peserta</h3>'+
+        '<p class="small muted">Untuk sementara, akun dibuat dari dashboard Supabase: Authentication, Add user, lalu tambahkan baris profilnya lewat SQL Editor. Tombol penambahan langsung dari halaman ini menyusul di tahap berikutnya.</p></div>'+
+      '<div style="border-top:1px solid var(--line); padding-top:16px"><h3>Cadangan data</h3>'+
+        '<p class="small muted">Supabase mencadangkan basis data secara otomatis. Untuk salinan manual, buka Database lalu Backups di dashboard Supabase.</p></div>'+
+      '<div style="border-top:1px solid var(--line); padding-top:16px"><h3>Lupa kata sandi</h3>'+
+        '<p class="small muted">Buka Authentication, Users, pilih orangnya, lalu Reset password. Peserta tidak bisa mengatur ulang sendiri karena pendaftaran mandiri dimatikan.</p></div>'+
     '</div></div>';
+}
+function akunNote(){
+  return '<div class="card" style="margin-top:16px"><div class="bd">'+
+    '<h3>Menambah orang baru</h3>'+
+    '<p class="small muted" style="margin-bottom:0">Akun dibuat dari dashboard Supabase: Authentication, Add user, lalu tambahkan baris profilnya di SQL Editor. '+
+    'Nama, toko, dan penugasan mentor tetap bisa diubah dari halaman ini.</p></div></div>';
 }
 
 /* ---------- halaman peserta ---------- */
@@ -1451,7 +1195,6 @@ function timelineEditor(){
     '<div class="savebar"><span class="small muted">Kelompok tersedia: '+S.timeline.groups.join(', ')+'.</span>'+
       '<button class="btn" data-act="tlsave">Simpan perubahan timeline</button></div></div>';
 }
-
 /* ============================================================
    EVENTS
    ============================================================ */
@@ -1459,8 +1202,6 @@ function bind(){
   document.querySelectorAll('[data-act]').forEach(el=>{
     el.addEventListener('click',e=>{ e.preventDefault(); act(el.dataset.act,el); });
   });
-  const imp=document.getElementById('impfile');
-  if(imp) imp.addEventListener('change',doImport);
   const lp=document.getElementById('lp');
   if(lp) lp.addEventListener('keydown',e=>{ if(e.key==='Enter') act('login'); });
 }
@@ -1468,150 +1209,120 @@ function act(a,el){
   const d=el?el.dataset:{};
   switch(a){
     case 'menu': { const s=document.getElementById('side'); if(s) s.classList.toggle('open'); break; }
-    case 'logout': S.session=null; save(); location.hash='#/ringkasan'; render(); break;
-    case 'login': {
-      const u=($('#lu').value||'').trim().toLowerCase(), p=$('#lp').value||'';
-      const f=S.users.find(x=>x.username===u&&x.password===p);
-      if(!f){ $('#app').innerHTML=viewLogin('Nama pengguna atau kata sandi tidak cocok. Coba admin / admin123.'); bind(); return; }
-      S.session=f.id; save(); location.hash='#/ringkasan'; render(); break;
-    }
-    case 'pnew': openPForm(null); break;
+    case 'login': doLogin(); break;
+    case 'logout': doLogout(); break;
+
+    /* ---- orang ---- */
     case 'ped': openPForm(d.id); break;
     case 'pcancel': document.getElementById('pform').style.display='none'; break;
     case 'psave': savePerson(); break;
-    case 'pdel': {
-      if(!confirm('Hapus peserta ini beserta kiriman dan penilaiannya?')) return;
-      S.participants=S.participants.filter(x=>x.id!==d.id);
-      S.users=S.users.filter(u=>!(u.role==='peserta'&&u.refId===d.id));
-      Object.keys(S.submissions).forEach(k=>{ if(k.endsWith('|'+d.id)) delete S.submissions[k]; });
-      Object.keys(S.assessments).forEach(k=>{ if(k.indexOf(d.id+'|')===0) delete S.assessments[k]; });
-      save(); toast('Peserta dihapus.'); render(); break;
-    }
-    case 'mnew': openMForm(null); break;
     case 'med': openMForm(d.id); break;
     case 'mcancel': document.getElementById('mform').style.display='none'; break;
     case 'msave': saveMentor(); break;
-    case 'mdel': {
-      if(S.participants.some(p=>p.mentorId===d.id)){ alert('Mentor ini masih memegang peserta. Pindahkan pesertanya lebih dulu.'); return; }
-      if(!confirm('Hapus mentor ini?')) return;
-      S.mentors=S.mentors.filter(x=>x.id!==d.id);
-      S.users=S.users.filter(u=>!(u.role==='mentor'&&u.refId===d.id));
-      save(); toast('Mentor dihapus.'); render(); break;
-    }
-    /* modul */
+
+    /* ---- modul & tugas ---- */
     case 'mdnew': openMdForm(null); break;
     case 'mdedit': openMdForm(d.id); break;
     case 'mdcancel': document.getElementById('mdform').style.display='none'; break;
     case 'mdsave': saveModule(); break;
-    case 'mddel': {
-      const n=modTasks(d.id).length;
-      if(!confirm('Hapus modul ini beserta lembar tugas dan seluruh pengerjaan pesertanya?')) return;
-      modTasks(d.id).forEach(t=>{
-        Object.keys(S.submissions).forEach(k=>{ if(k.indexOf(t.id+'|')===0) delete S.submissions[k]; });
-      });
-      S.tasks=S.tasks.filter(t=>!(t.scope==='mod'&&t.moduleId===d.id));
-      S.modules=S.modules.filter(x=>x.id!==d.id);
-      save(); toast('Modul dihapus.'); render(); break;
-    }
-    case 'submod': submitModTask(d.t,d.p); break;
-    case 'savemodval': saveModValidation(d.t,d.p); break;
-    /* tugas checkpoint */
+    case 'mddel': delModule(d.id); break;
     case 'tnew': openTForm(null,d.m); break;
     case 'ted': openTForm(d.id); break;
     case 'tcancel': document.getElementById('tform').style.display='none'; break;
     case 'tsave': saveTask(); break;
-    case 'tdel': {
-      if(!confirm('Hapus tugas ini beserta kiriman peserta untuk tugas tersebut?')) return;
-      S.tasks=S.tasks.filter(x=>x.id!==d.id);
-      Object.keys(S.submissions).forEach(k=>{ if(k.indexOf(d.id+'|')===0) delete S.submissions[k]; });
-      save(); toast('Tugas dihapus.'); render(); break;
-    }
-    case 'cpsave': {
-      document.querySelectorAll('[data-cp]').forEach(i=>{ const c=CP(Number(i.dataset.cp)); if(c) c[i.dataset.fld]=i.value; });
-      save(); toast('Checkpoint tersimpan.'); render(); break;
-    }
-    case 'setsave': {
-      S.settings.thBelum=Number($('#set_tb').value||1.6);
-      S.settings.thSiap=Number($('#set_ts').value||2);
-      save(); toast('Ambang kesiapan tersimpan.'); render(); break;
-    }
+    case 'tdel': delTask(d.id); break;
+
+    /* ---- checkpoint & ambang ---- */
+    case 'cpsave': saveCheckpointDates(); break;
+    case 'setsave': saveThresholds(); break;
+
+    /* ---- penilaian ---- */
     case 'score': {
       const grp=el.closest('.rate'); grp.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
       el.classList.add('on'); break;
     }
-    case 'savecp': saveValidations(d.p,Number(d.m)); break;
-    case 'savemod': saveValidations(d.p,'mod'); break;
+    case 'submod': submitModTask(d.t,d.p); break;
+    case 'savemodval': saveModValidation(d.t,d.p); break;
+    case 'submit': doSubmitCP(d.t,d.p); break;
+    case 'savecp': saveCPValidations(d.p,Number(d.m)); break;
     case 'savepillars': savePillars(d.p,Number(d.m)); break;
-    case 'submit': doSubmit(d.t,d.p); break;
-    case 'tladd': S.timeline.items.push({id:uid('x'),g:S.timeline.groups[0],row:'Kegiatan baru',start:today(),end:today(),kind:'bar',style:'navy',note:''}); save(); render(); break;
-    case 'tldel': S.timeline.items.splice(Number(d.ix),1); save(); render(); break;
-    case 'tlsave': {
-      document.querySelectorAll('[data-tl]').forEach(i=>{
-        const it=S.timeline.items[Number(i.dataset.tl)]; if(it) it[i.dataset.fld]=i.value;
-      });
-      save(); toast('Timeline tersimpan.'); render(); break;
-    }
-    case 'export': {
-      const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
-      const a2=document.createElement('a'); a2.href=URL.createObjectURL(blob);
-      a2.download='leap-batch5-tracker-'+today()+'.json'; a2.click();
-      setTimeout(()=>URL.revokeObjectURL(a2.href),2000); break;
-    }
-    case 'importpick': document.getElementById('impfile').click(); break;
-    case 'reset': {
-      if(!confirm('Semua data akan dihapus dan dikembalikan ke kondisi awal. Lanjutkan?')) return;
-      S=seed(); save(); location.hash='#/ringkasan'; render(); toast('Data dikembalikan ke kondisi awal.'); break;
-    }
+
+    /* ---- timeline ---- */
+    case 'tladd':
+      S.timeline.items.push({id:'baru-'+Math.random().toString(36).slice(2,8),g:S.timeline.groups[0],
+        row:'Kegiatan baru',start:today(),end:today(),kind:'bar',style:'navy',note:''});
+      render(); break;
+    case 'tldel': S.timeline.items.splice(Number(d.ix),1); render(); break;
+    case 'tlsave': saveTimeline(); break;
   }
 }
 
-/* ---------- form helpers ---------- */
+/* ---------- autentikasi ---------- */
+async function doLogin(){
+  const email=($('#lu').value||'').trim(), pass=$('#lp').value||'';
+  if(!email||!pass){ $('#app').innerHTML=viewLogin('Email dan kata sandi wajib diisi.'); bind(); return; }
+  setBusy(true);
+  const {error}=await SB.auth.signInWithPassword({email:email,password:pass});
+  setBusy(false);
+  if(error){ $('#app').innerHTML=viewLogin('Email atau kata sandi tidak cocok.'); bind(); return; }
+  await afterAuth();
+}
+async function doLogout(){
+  await SB.auth.signOut();
+  ME=null; S=emptyState(); location.hash='#/ringkasan'; render();
+}
+async function afterAuth(){
+  setBusy(true);
+  try{
+    const {data:{user}}=await SB.auth.getUser();
+    if(!user){ ME=null; render(); return; }
+    const {data,error}=await SB.from('profiles').select('*').eq('id',user.id).maybeSingle();
+    if(error) throw error;
+    if(!data){
+      await SB.auth.signOut(); ME=null;
+      $('#app').innerHTML=viewLogin('Akun ini belum terdaftar sebagai pengguna aplikasi. Hubungi admin program.');
+      bind(); return;
+    }
+    ME={id:data.id,name:data.name,role:data.role};
+    await loadAll();
+    render();
+  }catch(e){
+    console.error(e); ME=null;
+    $('#app').innerHTML=viewLogin('Gagal memuat data: '+(e.message||e));
+    bind();
+  }finally{ setBusy(false); }
+}
+
+/* ---------- orang ---------- */
 function openPForm(id){
-  if(!S.mentors.length){ alert('Tambahkan minimal satu mentor lebih dulu.'); return; }
   const f=document.getElementById('pform'); if(!f) return; f.style.display='';
-  const p=id?P(id):null;
-  document.getElementById('pformtitle').textContent=p?'Ubah peserta':'Tambah peserta';
+  const p=P(id);
+  document.getElementById('pformtitle').textContent='Ubah peserta';
   document.getElementById('pf_id').value=p?p.id:'';
   document.getElementById('pf_name').value=p?p.name:'';
   document.getElementById('pf_store').value=p?p.store:'';
-  document.getElementById('pf_mentor').value=p?p.mentorId:(S.mentors[0]||{}).id||'';
-  const u=p?S.users.find(x=>x.role==='peserta'&&x.refId===p.id):null;
-  document.getElementById('pf_user').value=u?u.username:'';
-  document.getElementById('pf_pass').value=u?u.password:'peserta123';
+  document.getElementById('pf_mentor').value=p?(p.mentorId||''):'';
   f.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function savePerson(){
   const id=document.getElementById('pf_id').value;
   const name=document.getElementById('pf_name').value.trim();
   const store=document.getElementById('pf_store').value.trim();
-  const mentorId=document.getElementById('pf_mentor').value;
-  const un=document.getElementById('pf_user').value.trim().toLowerCase();
-  const pw=document.getElementById('pf_pass').value;
-  if(!name){ alert('Nama peserta belum diisi.'); return; }
-  if(!un){ alert('Nama pengguna belum diisi.'); return; }
-  if(S.users.some(u=>u.username===un&&!(id&&u.role==='peserta'&&u.refId===id))){ alert('Nama pengguna sudah dipakai.'); return; }
-  if(id){
-    const p=P(id); p.name=name; p.store=store; p.mentorId=mentorId;
-    const u=S.users.find(x=>x.role==='peserta'&&x.refId===id);
-    if(u){ u.username=un; u.password=pw; u.name=name; }
-  }else{
-    const np={id:uid('p'),name:name,store:store,mentorId:mentorId,email:'',pillars2:['','',''],pillars3:['','','','']};
-    S.participants.push(np);
-    S.users.push({id:uid('u'),username:un,password:pw,role:'peserta',refId:np.id,name:name});
-  }
-  save(); toast('Peserta tersimpan.'); render();
+  const mentorId=document.getElementById('pf_mentor').value||null;
+  if(!id||!name){ alert('Nama peserta belum diisi.'); return; }
+  tx(async function(){
+    const {error}=await SB.from('profiles').update({name:name,store:store,mentor_id:mentorId}).eq('id',id);
+    if(error) throw error;
+  },'Peserta tersimpan.');
 }
 function openMForm(id){
   const f=document.getElementById('mform'); if(!f) return; f.style.display='';
-  const m=id?M(id):null;
-  document.getElementById('mformtitle').textContent=m?'Ubah mentor':'Tambah mentor';
+  const m=M(id);
+  document.getElementById('mformtitle').textContent='Ubah mentor';
   document.getElementById('mf_id').value=m?m.id:'';
   document.getElementById('mf_name').value=m?m.name:'';
   document.getElementById('mf_region').value=m?m.region:'';
-  document.getElementById('mf_email').value=m?m.email||'':'';
-  const u=m?S.users.find(x=>x.role==='mentor'&&x.refId===m.id):null;
-  document.getElementById('mf_user').value=u?u.username:'';
-  document.getElementById('mf_pass').value=u?u.password:'mentor123';
+  document.getElementById('mf_email').value=m?(m.email||''):'';
   f.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function saveMentor(){
@@ -1619,21 +1330,14 @@ function saveMentor(){
   const name=document.getElementById('mf_name').value.trim();
   const region=document.getElementById('mf_region').value.trim();
   const email=document.getElementById('mf_email').value.trim();
-  const un=document.getElementById('mf_user').value.trim().toLowerCase();
-  const pw=document.getElementById('mf_pass').value;
-  if(!name||!un){ alert('Nama dan nama pengguna wajib diisi.'); return; }
-  if(S.users.some(u=>u.username===un&&!(id&&u.role==='mentor'&&u.refId===id))){ alert('Nama pengguna sudah dipakai.'); return; }
-  if(id){
-    const m=M(id); m.name=name; m.region=region; m.email=email;
-    const u=S.users.find(x=>x.role==='mentor'&&x.refId===id);
-    if(u){ u.username=un; u.password=pw; u.name=name; }
-  }else{
-    const nm={id:uid('m'),name:name,region:region,email:email};
-    S.mentors.push(nm);
-    S.users.push({id:uid('u'),username:un,password:pw,role:'mentor',refId:nm.id,name:name});
-  }
-  save(); toast('Mentor tersimpan.'); render();
+  if(!id||!name){ alert('Nama mentor belum diisi.'); return; }
+  tx(async function(){
+    const {error}=await SB.from('profiles').update({name:name,region:region,email:email}).eq('id',id);
+    if(error) throw error;
+  },'Mentor tersimpan.');
 }
+
+/* ---------- modul & lembar tugasnya ---------- */
 function openMdForm(id){
   const f=document.getElementById('mdform'); if(!f) return; f.style.display='';
   const m=id?MOD(id):null, t=id?modTasks(id)[0]:null;
@@ -1652,7 +1356,7 @@ function openMdForm(id){
   document.getElementById('mt_act').value=t?(t.act||[]).map(a=>a.guide?(a.label+' | '+a.guide):a.label).join('\n'):'';
   document.getElementById('mt_ev').value=t?(t.ev||[]).map(e=>e.label).join('\n'):'';
   document.getElementById('mt_chk').value=t?(t.chk||[]).map(c=>c.label).join('\n'):'';
-  const r=(t&&t.rubric)?t.rubric:DEFRUB;
+  const r=(t&&t.rubric&&t.rubric[1])?t.rubric:DEFRUB;
   document.getElementById('mt_r1').value=r[1]||'';
   document.getElementById('mt_r2').value=r[2]||'';
   document.getElementById('mt_r3').value=r[3]||'';
@@ -1669,17 +1373,13 @@ function saveModule(){
     facilitator:document.getElementById('md_fac').value.trim(),
     session:document.getElementById('md_ses').value.trim(),
     competency:document.getElementById('md_comp').value.trim(),
-    order:Number(document.getElementById('md_order').value||1)
+    order_no:Number(document.getElementById('md_order').value||1)
   };
   if(!mo.name){ alert('Nama modul belum diisi.'); return; }
-  let mid=id;
-  if(id){ Object.assign(MOD(id),mo); }
-  else { mid=uid('md'); S.modules.push(Object.assign({id:mid},mo)); }
   const to={
-    scope:'mod', moduleId:mid,
-    code:document.getElementById('mt_code').value.trim()||('TUGAS '+mo.order),
+    code:document.getElementById('mt_code').value.trim()||('TUGAS '+mo.order_no),
     title:document.getElementById('mt_title').value.trim()||mo.name,
-    due:document.getElementById('mt_due').value,
+    due:document.getElementById('mt_due').value||null,
     obj:lines('mt_obj'),
     act:lines('mt_act').map(function(l,i){
       const k=l.indexOf('|');
@@ -1693,22 +1393,42 @@ function saveModule(){
       3:document.getElementById('mt_r3').value.trim()
     }
   };
-  const ex=modTasks(mid)[0];
-  if(ex){ Object.assign(ex,to); } else { S.tasks.push(Object.assign({id:uid('t')},to)); }
-  save(); toast('Modul dan lembar tugasnya tersimpan.'); render();
+  const existing=id?modTasks(id)[0]:null;
+  tx(async function(){
+    let mid=id;
+    if(id){
+      const {error}=await SB.from('modules').update(mo).eq('id',id); if(error) throw error;
+    }else{
+      const {data,error}=await SB.from('modules').insert(mo).select('id').single();
+      if(error) throw error; mid=data.id;
+    }
+    if(existing){
+      const {error}=await SB.from('tasks').update(to).eq('id',existing.id); if(error) throw error;
+    }else{
+      const {error}=await SB.from('tasks').insert(Object.assign({scope:'mod',module_id:mid},to));
+      if(error) throw error;
+    }
+  },'Modul dan lembar tugasnya tersimpan.');
+}
+function delModule(id){
+  if(!confirm('Hapus modul ini beserta lembar tugas dan seluruh pengerjaan pesertanya?')) return;
+  tx(async function(){
+    const {error}=await SB.from('modules').delete().eq('id',id); if(error) throw error;
+  },'Modul dihapus.');
 }
 
+/* ---------- poin tugas checkpoint ---------- */
 function openTForm(id,m){
   const f=document.getElementById('tform'); if(!f) return; f.style.display='';
   const t=id?T(id):null;
   document.getElementById('tformtitle').textContent=t?'Ubah poin tugas':'Tambah poin tugas';
   document.getElementById('tf_id').value=t?t.id:'';
-  document.getElementById('tf_code').value=t?t.code:'T'+(S.tasks.filter(x=>x.scope==='cp').length+1);
+  document.getElementById('tf_code').value=t?t.code:('T'+(S.tasks.filter(x=>x.scope==='cp').length+1));
   document.getElementById('tf_title').value=t?t.title:'';
   document.getElementById('tf_cp').value=t?t.cp:(m||1);
   document.getElementById('tf_due').value=t?t.due:'';
   document.getElementById('tf_accept').value=t?t.accept:'both';
-  document.getElementById('tf_desc').value=t?t.desc||'':'';
+  document.getElementById('tf_desc').value=t?(t.desc||''):'';
   f.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function saveTask(){
@@ -1718,62 +1438,93 @@ function saveTask(){
     code:document.getElementById('tf_code').value.trim(),
     title:document.getElementById('tf_title').value.trim(),
     cp:Number(document.getElementById('tf_cp').value),
-    due:document.getElementById('tf_due').value,
+    due:document.getElementById('tf_due').value||null,
     accept:document.getElementById('tf_accept').value,
-    desc:document.getElementById('tf_desc').value.trim()
+    description:document.getElementById('tf_desc').value.trim()
   };
   if(!o.title){ alert('Nama poin tugas belum diisi.'); return; }
-  if(id){ Object.assign(T(id),o); } else { S.tasks.push(Object.assign({id:uid('t')},o)); }
-  save(); toast('Poin tugas tersimpan.'); render();
+  tx(async function(){
+    if(id){ const {error}=await SB.from('tasks').update(o).eq('id',id); if(error) throw error; }
+    else   { const {error}=await SB.from('tasks').insert(o); if(error) throw error; }
+  },'Poin tugas tersimpan.');
+}
+function delTask(id){
+  if(!confirm('Hapus tugas ini beserta kiriman peserta untuk tugas tersebut?')) return;
+  tx(async function(){
+    const {error}=await SB.from('tasks').delete().eq('id',id); if(error) throw error;
+  },'Tugas dihapus.');
 }
 
-/* ---------- penyimpanan penilaian ---------- */
-function saveValidations(pid,m){
-  const u=me(), now=new Date().toISOString();
-  const ts=m==='mod'?allModTasks():tasksOf(m);
-  let n=0;
-  ts.forEach(function(t){
-    const key=subKey(t.id,pid), s=S.submissions[key];
-    if(!s||!s.versions.length) return;
-    const grp=document.querySelector('[data-rate="'+t.id+'"]');
-    const on=grp?grp.querySelector('button.on'):null;
-    const noteEl=document.querySelector('[data-vnote="'+t.id+'"]');
-    const note=noteEl?noteEl.value.trim():'';
-    if(!on&&!s.validation) return;
-    const score=on?Number(on.dataset.v):s.validation.score;
-    const late=m==='mod'?isLateDue(t.due,now):isLateCP(m,now);
-    s.validation={score:score,note:note,at:now,by:u.name,late:late};
-    n++;
+/* ---------- checkpoint & ambang ---------- */
+function saveCheckpointDates(){
+  const rows={};
+  document.querySelectorAll('[data-cp]').forEach(function(i){
+    const m=Number(i.dataset.cp); rows[m]=rows[m]||{m:m};
+    rows[m][{name:'name',start:'start_date',end:'end_date'}[i.dataset.fld]]=i.value;
   });
-  const a=assess(pid,m)||{summary:'',follow:'',savedAt:null,late:false};
-  a.summary=(document.getElementById('cp_sum')||{}).value||'';
-  a.follow=(document.getElementById('cp_follow')||{}).value||'';
-  a.savedAt=now; a.late=m==='mod'?false:isLateCP(m,now);
-  S.assessments[asKey(pid,m)]=a;
-  save(); toast(n?('Penilaian tersimpan untuk '+n+' tugas.'):'Catatan tersimpan. Belum ada nilai yang dipilih.'); render();
+  tx(async function(){
+    for(const m of Object.keys(rows)){
+      const r=rows[m];
+      const {error}=await SB.from('checkpoints')
+        .update({name:r.name,start_date:r.start_date,end_date:r.end_date}).eq('m',Number(m));
+      if(error) throw error;
+    }
+  },'Checkpoint tersimpan.');
 }
+function saveThresholds(){
+  const tb=Number($('#set_tb').value||1.6), ts=Number($('#set_ts').value||2);
+  tx(async function(){
+    const {error}=await SB.from('settings').update({th_belum:tb,th_siap:ts}).eq('id',1);
+    if(error) throw error;
+  },'Ambang kesiapan tersimpan.');
+}
+
+/* ---------- timeline ---------- */
+function saveTimeline(){
+  document.querySelectorAll('[data-tl]').forEach(function(i){
+    const it=S.timeline.items[Number(i.dataset.tl)]; if(it) it[i.dataset.fld]=i.value;
+  });
+  const rows=S.timeline.items.map((i,ix)=>({
+    grp:i.g,row_label:i.row,start_date:i.start,end_date:i.end||i.start,
+    kind:i.kind,style:i.style,note:i.note||'',sort:ix+1
+  }));
+  tx(async function(){
+    const del=await SB.from('timeline_items').delete().neq('grp','__none__');
+    if(del.error) throw del.error;
+    if(rows.length){
+      const ins=await SB.from('timeline_items').insert(rows);
+      if(ins.error) throw ins.error;
+    }
+  },'Timeline tersimpan.');
+}
+
+/* ---------- pilar peserta ---------- */
 function savePillars(pid,m){
-  const p=P(pid), fld=m===2?'pillars2':'pillars3';
   const arr=[...document.querySelectorAll('[data-pil]')].map(i=>i.value.trim());
-  p[fld]=arr; save(); toast('Nama pilar tersimpan.'); render();
+  const col=(m===2)?'pillars2':'pillars3';
+  const patch={}; patch[col]=arr;
+  tx(async function(){
+    const {error}=await SB.from('profiles').update(patch).eq('id',pid); if(error) throw error;
+  },'Nama pilar tersimpan.');
 }
+
+/* ---------- tugas modul: kiriman peserta ---------- */
 function submitModTask(tid,pid){
   const t=T(tid);
-  const key=subKey(tid,pid);
-  const s=S.submissions[key]||{answers:{},evid:{},submitCount:0,submittedAt:null,validation:null};
-  s.answers=s.answers||{}; s.evid=s.evid||{};
+  const prev=S.submissions[subKey(tid,pid)]||{answers:{},evid:{},submitCount:0};
+  const answers={}, evid={};
   (t.act||[]).forEach(function(a){
     const el=document.querySelector('[data-ans="'+tid+'|'+a.id+'"]');
-    if(el) s.answers[a.id]=el.value.trim();
+    answers[a.id]=el?el.value.trim():(prev.answers[a.id]||'');
   });
   (t.ev||[]).forEach(function(e){
-    const cur=s.evid[e.id]||{};
+    const cur=prev.evid[e.id]||{};
     const cb=document.querySelector('[data-evc="'+tid+'|'+e.id+'"]');
     const lk=document.querySelector('[data-evl="'+tid+'|'+e.id+'"]');
     const nt=document.querySelector('[data-evn="'+tid+'|'+e.id+'"]');
     const fi=document.querySelector('[data-evf="'+tid+'|'+e.id+'"]');
     const file=fi&&fi.files&&fi.files[0]?fi.files[0]:null;
-    s.evid[e.id]={
+    evid[e.id]={
       on:cb?cb.checked:!!cur.on,
       link:lk?lk.value.trim():(cur.link||''),
       note:nt?nt.value.trim():(cur.note||''),
@@ -1781,19 +1532,21 @@ function submitModTask(tid,pid){
       size:file?file.size:(cur.size||0)
     };
   });
-  const isiAda=Object.keys(s.answers).some(k=>s.answers[k])||Object.keys(s.evid).some(k=>s.evid[k].on||s.evid[k].link||s.evid[k].note||s.evid[k].fileName);
-  if(!isiAda){ alert('Isi minimal satu jawaban Bagian A atau satu evidence Bagian B sebelum mengirim.'); return; }
-  s.submitCount=(s.submitCount||0)+1;
-  s.submittedAt=new Date().toISOString();
-  s.validation=null;
-  S.submissions[key]=s; save();
-  toast('Tugas terkirim. Menunggu validasi mentor.'); render();
+  const ada=Object.keys(answers).some(k=>answers[k])||
+            Object.keys(evid).some(k=>evid[k].on||evid[k].link||evid[k].note||evid[k].fileName);
+  if(!ada){ alert('Isi minimal satu jawaban Bagian A atau satu evidence Bagian B sebelum mengirim.'); return; }
+  tx(async function(){
+    const {error}=await SB.from('submissions').upsert({
+      task_id:tid, participant_id:pid, answers:answers, evid:evid,
+      submit_count:(prev.submitCount||0)+1, submitted_at:new Date().toISOString(), validation:null
+    },{onConflict:'task_id,participant_id'});
+    if(error) throw error;
+  },'Tugas terkirim. Menunggu validasi mentor.');
 }
 function saveModValidation(tid,pid){
-  const t=T(tid), u=me(), now=new Date().toISOString();
-  const key=subKey(tid,pid);
-  const s=S.submissions[key];
-  if(!s||!s.submitCount){ alert('Peserta belum mengirim tugas ini.'); return; }
+  const t=T(tid);
+  const cur=S.submissions[subKey(tid,pid)];
+  if(!cur||!cur.submitCount){ alert('Peserta belum mengirim tugas ini.'); return; }
   const checks={};
   (t.chk||[]).forEach(function(c){
     const grp=document.querySelector('[data-rate="chk|'+tid+'|'+c.id+'"]');
@@ -1805,18 +1558,21 @@ function saveModValidation(tid,pid){
   const ovOn=ovGrp?ovGrp.querySelector('button.on'):null;
   const sum=document.querySelector('[data-msum="'+tid+'"]');
   const fu=document.querySelector('[data-mfu="'+tid+'"]');
-  s.validation={
-    checks:checks,
-    overall:ovOn?Number(ovOn.dataset.v):null,
-    summary:sum?sum.value.trim():'',
-    follow:fu?fu.value.trim():'',
-    by:u.name, at:now, late:isLateDue(t.due,now)
+  const now=new Date().toISOString();
+  const validation={
+    checks:checks, overall:ovOn?Number(ovOn.dataset.v):null,
+    summary:sum?sum.value.trim():'', follow:fu?fu.value.trim():'',
+    by:ME.name, at:now, late:isLateDue(t.due,now)
   };
-  S.submissions[key]=s; save();
-  toast(s.validation.overall?'Validasi tersimpan.':'Tersimpan. Rating keseluruhan belum dipilih, jadi tugas ini belum terhitung selesai.');
-  render();
+  tx(async function(){
+    const {error}=await SB.from('submissions').update({validation:validation})
+      .eq('task_id',tid).eq('participant_id',pid);
+    if(error) throw error;
+  }, validation.overall?'Validasi tersimpan.':'Tersimpan. Rating keseluruhan belum dipilih, jadi tugas ini belum terhitung selesai.');
 }
-function doSubmit(tid,pid){
+
+/* ---------- tugas checkpoint ---------- */
+function doSubmitCP(tid,pid){
   const fi=document.querySelector('[data-up="'+tid+'"]');
   const li=document.querySelector('[data-lk="'+tid+'"]');
   const wk=document.querySelector('[data-work="'+tid+'"]');
@@ -1824,38 +1580,73 @@ function doSubmit(tid,pid){
   const link=li?li.value.trim():'';
   const work=wk?wk.value.trim():'';
   if(!file&&!link&&!work){ alert('Isi uraian pengerjaan, atau lampirkan berkas atau tautan.'); return; }
-  const key=subKey(tid,pid);
-  const s=S.submissions[key]||{versions:[],validation:null};
-  const prev=s.versions.length?s.versions[s.versions.length-1]:null;
-  s.versions.push({
-    n:s.versions.length+1,
-    work:work,
+  const cur=S.submissions[subKey(tid,pid)]||{versions:[]};
+  const versions=(cur.versions||[]).slice();
+  const prev=versions.length?versions[versions.length-1]:null;
+  versions.push({
+    n:versions.length+1, work:work,
     kind:file?'file':(link?'link':'text'),
     fileName:file?file.name:(prev&&!link?prev.fileName:''),
     size:file?file.size:0,
     link:link||(prev&&!file?prev.link:''),
     at:new Date().toISOString()
   });
-  s.validation=null;
-  S.submissions[key]=s; save();
-  toast('Pengerjaan terkirim. Menunggu validasi mentor.'); render();
+  tx(async function(){
+    const {error}=await SB.from('submissions').upsert({
+      task_id:tid, participant_id:pid, versions:versions,
+      submit_count:versions.length, submitted_at:new Date().toISOString(), validation:null
+    },{onConflict:'task_id,participant_id'});
+    if(error) throw error;
+  },'Pengerjaan terkirim. Menunggu validasi mentor.');
 }
-function doImport(e){
-  const f=e.target.files&&e.target.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=function(){
-    try{
-      const o=JSON.parse(r.result);
-      if(!o||!o.users||!o.participants) throw new Error('Struktur berkas tidak dikenali.');
-      S=o; S.session=null; save(); location.hash='#/ringkasan'; render(); toast('Data berhasil diimpor. Silakan masuk kembali.');
-    }catch(err){ alert('Gagal mengimpor: '+err.message); }
-  };
-  r.readAsText(f);
+function saveCPValidations(pid,m){
+  const now=new Date().toISOString();
+  const updates=[];
+  tasksOf(m).forEach(function(t){
+    const cur=S.submissions[subKey(t.id,pid)];
+    if(!cur||!cur.versions||!cur.versions.length) return;
+    const grp=document.querySelector('[data-rate="'+t.id+'"]');
+    const on=grp?grp.querySelector('button.on'):null;
+    const noteEl=document.querySelector('[data-vnote="'+t.id+'"]');
+    const note=noteEl?noteEl.value.trim():'';
+    if(!on&&!cur.validation) return;
+    updates.push({tid:t.id,validation:{
+      score:on?Number(on.dataset.v):cur.validation.score,
+      note:note, at:now, by:ME.name, late:isLateCP(m,now)
+    }});
+  });
+  const sumEl=document.getElementById('cp_sum'), fuEl=document.getElementById('cp_follow');
+  tx(async function(){
+    for(const u of updates){
+      const {error}=await SB.from('submissions').update({validation:u.validation})
+        .eq('task_id',u.tid).eq('participant_id',pid);
+      if(error) throw error;
+    }
+    const {error}=await SB.from('assessments').upsert({
+      participant_id:pid, component:String(m),
+      summary:sumEl?sumEl.value.trim():'', follow_up:fuEl?fuEl.value.trim():'',
+      saved_at:now, late:isLateCP(m,now)
+    },{onConflict:'participant_id,component'});
+    if(error) throw error;
+  }, updates.length?('Penilaian tersimpan untuk '+updates.length+' tugas.'):'Catatan tersimpan. Belum ada nilai yang dipilih.');
 }
 
-/* ---------- start ---------- */
+/* ---------- mulai ---------- */
+window.addEventListener('hashchange',function(){ if(ME) render(); });
 if(!location.hash) location.hash='#/ringkasan';
-render();
+
+if(!SB){
+  document.getElementById('app').innerHTML=
+    '<div class="login"><div class="box"><div class="brandbig">LEAP <em>Batch 5</em></div>'+
+    '<div class="card"><div class="bd"><h3>Konfigurasi belum diisi</h3>'+
+    '<p class="small muted">Buka berkas index.html, lalu isi SUPABASE_URL dan SUPABASE_ANON di bagian paling atas skrip dengan milik project Supabase Anda.</p>'+
+    '</div></div></div></div>';
+}else{
+  SB.auth.onAuthStateChange(function(event){
+    if(event==='SIGNED_OUT'){ ME=null; render(); }
+  });
+  afterAuth();
+}
 
 </script>
 </body>
