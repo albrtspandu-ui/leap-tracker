@@ -640,11 +640,15 @@ function viewParticipantList(){
       '<td class="mono-num"><strong>'+n1(sc)+'</strong></td>'+
       '<td><span class="pill '+rd.cls+'">'+rd.label+'</span></td>'+
       '<td>'+(own?'<span class="pill done">Dapat dinilai</span>':'<span class="pill flat">Hanya lihat</span>')+'</td>'+
-      (r==='admin'?'<td class="row"><button class="btn ghost sm" data-act="ped" data-id="'+p.id+'">Ubah</button></td>':'')+'</tr>';
+      (r==='admin'?'<td class="row"><button class="btn ghost sm" data-act="ped" data-id="'+p.id+'">Ubah</button>'+
+        '<button class="btn ghost sm" data-act="pwset" data-id="'+p.id+'" data-nm="'+esc(p.name)+'">Kata sandi</button>'+
+        '<button class="btn ghost sm" data-act="udel" data-id="'+p.id+'" data-nm="'+esc(p.name)+'">Hapus</button></td>':'')+'</tr>';
   }).join('');
-  const addBtn='';
+  const addBtn=r==='admin'?(noMentor
+    ?'<a class="btn ghost" href="#/mentor">Tambah mentor dulu</a>'
+    :'<button class="btn" data-act="pnew">Tambah peserta</button>'):'';
   const emptyMsg=r==='admin'
-    ?'Akun peserta dibuat dari dashboard Supabase untuk sementara ini.'
+    ?(noMentor?'Tambahkan mentor lebih dulu, lalu peserta dapat ditugaskan kepada mentornya.':'Gunakan tombol Tambah peserta untuk mengisi daftar.')
     :'Admin program belum memasukkan daftar peserta.';
   return '<div class="pagehead spread"><div><h1>Peserta</h1>'+
     '<p>'+(r==='mentor'?'Anda dapat melihat seluruh peserta, namun hanya dapat menilai mentee Anda sendiri.':'Kelola daftar peserta dan penugasan mentornya.')+'</p></div>'+addBtn+'</div>'+
@@ -652,7 +656,7 @@ function viewParticipantList(){
     '<thead><tr><th>Peserta</th><th>Mentor</th><th>Total</th><th>Status</th><th>Akses</th>'+(r==='admin'?'<th></th>':'')+'</tr></thead>'+
     '<tbody>'+(rows||'<tr><td colspan="6"><div class="empty"><strong>Belum ada peserta</strong>'+emptyMsg+'</div></td></tr>')+
     '</tbody></table></div></div></div>'+
-    (r==='admin'?akunNote():'')+(r==='admin'?formParticipant():'');
+    (r==='admin'&&!noMentor?formParticipant():'');
 }
 function formParticipant(){
   const opts='<option value="">— belum ditetapkan —</option>'+
@@ -663,7 +667,12 @@ function formParticipant(){
       '<label class="f"><span>Nama lengkap</span><input type="text" id="pf_name"></label>'+
       '<label class="f"><span>Toko</span><input type="text" id="pf_store"></label>'+
       '<label class="f"><span>Mentor</span><select id="pf_mentor">'+opts+'</select></label>'+
+      '<label class="f"><span>Nama pengguna untuk masuk</span>'+
+        '<input type="text" id="pf_user" autocapitalize="none" placeholder="mis. rina.pratiwi"></label>'+
+      '<label class="f"><span id="pf_passlbl">Kata sandi awal</span>'+
+        '<input type="text" id="pf_pass" placeholder="minimal 6 karakter"></label>'+
     '</div>'+
+    '<p class="small muted" id="pf_hint" style="margin-top:-4px"></p>'+
     '<div class="row"><button class="btn" data-act="psave">Simpan peserta</button>'+
       '<button class="btn ghost" data-act="pcancel">Batal</button></div></div></div>';
 }
@@ -677,20 +686,28 @@ function viewMentorList(){
       '<td class="small">'+esc(m.email||'—')+'</td>'+
       '<td>'+ment.length+' peserta'+(ment.length?'<div class="small muted">'+ment.map(p=>esc(p.name)).join(', ')+'</div>':'')+'</td>'+
       '<td class="mono-num">'+n1(sc)+'</td>'+
-      '<td class="row"><button class="btn ghost sm" data-act="med" data-id="'+m.id+'">Ubah</button></td></tr>';
+      '<td class="row"><button class="btn ghost sm" data-act="med" data-id="'+m.id+'">Ubah</button>'+
+      '<button class="btn ghost sm" data-act="pwset" data-id="'+m.id+'" data-nm="'+esc(m.name)+'">Kata sandi</button>'+
+      '<button class="btn ghost sm" data-act="udel" data-id="'+m.id+'" data-nm="'+esc(m.name)+'">Hapus</button></td></tr>';
   }).join('');
-  return '<div class="pagehead"><h1>Mentor</h1><p>Satu mentor dapat memegang lebih dari satu peserta.</p></div>'+
+  return '<div class="pagehead spread"><div><h1>Mentor</h1><p>Satu mentor dapat memegang lebih dari satu peserta.</p></div>'+
+    '<button class="btn" data-act="mnew">Tambah mentor</button></div>'+
     '<div class="card"><div class="bd tight"><div class="tscroll"><table>'+
     '<thead><tr><th>Mentor</th><th>Email</th><th>Mentee</th><th>Rata-rata mentee</th><th></th></tr></thead>'+
-    '<tbody>'+(rows||'<tr><td colspan="5"><div class="empty"><strong>Belum ada mentor</strong>Akun mentor dibuat dari dashboard Supabase untuk sementara ini.</div></td></tr>')+
-    '</tbody></table></div></div></div>'+akunNote()+
+    '<tbody>'+(rows||'<tr><td colspan="5"><div class="empty"><strong>Belum ada mentor</strong>Tambahkan Region Manager yang akan memegang peserta.</div></td></tr>')+
+    '</tbody></table></div></div></div>'+
     '<div class="card" id="mform" style="display:none; margin-top:16px"><div class="hd"><h3 id="mformtitle">Tambah mentor</h3></div>'+
     '<div class="bd"><input type="hidden" id="mf_id">'+
       '<div class="grid g2">'+
         '<label class="f"><span>Nama lengkap</span><input type="text" id="mf_name"></label>'+
         '<label class="f"><span>Region</span><input type="text" id="mf_region"></label>'+
-        '<label class="f"><span>Email</span><input type="text" id="mf_email"></label>'+
+        '<label class="f"><span>Email kantor</span><input type="text" id="mf_email"></label>'+
+        '<label class="f"><span>Nama pengguna untuk masuk</span>'+
+          '<input type="text" id="mf_user" autocapitalize="none" placeholder="mis. dedi.kurniawan"></label>'+
+        '<label class="f"><span id="mf_passlbl">Kata sandi awal</span>'+
+          '<input type="text" id="mf_pass" placeholder="minimal 6 karakter"></label>'+
       '</div>'+
+      '<p class="small muted" id="mf_hint" style="margin-top:-4px"></p>'+
       '<div class="row"><button class="btn" data-act="msave">Simpan mentor</button>'+
       '<button class="btn ghost" data-act="mcancel">Batal</button></div></div></div>';
 }
@@ -815,18 +832,12 @@ function viewSettings(){
     '<p>Seluruh data aplikasi kini tersimpan di Supabase, bukan lagi di browser. Semua orang yang masuk melihat data yang sama.</p></div>'+
     '<div class="card"><div class="bd stack">'+
       '<div><h3>Menambah mentor dan peserta</h3>'+
-        '<p class="small muted">Untuk sementara, akun dibuat dari dashboard Supabase: Authentication, Add user, lalu tambahkan baris profilnya lewat SQL Editor. Tombol penambahan langsung dari halaman ini menyusul di tahap berikutnya.</p></div>'+
+        '<p class="small muted">Gunakan tombol Tambah di halaman Mentor dan Peserta. Akun login beserta profilnya terbentuk sekaligus. Nama pengguna yang Anda isi itulah yang mereka ketik di layar masuk.</p></div>'+
       '<div style="border-top:1px solid var(--line); padding-top:16px"><h3>Cadangan data</h3>'+
         '<p class="small muted">Supabase mencadangkan basis data secara otomatis. Untuk salinan manual, buka Database lalu Backups di dashboard Supabase.</p></div>'+
       '<div style="border-top:1px solid var(--line); padding-top:16px"><h3>Lupa kata sandi</h3>'+
-        '<p class="small muted">Buka Authentication, Users, pilih orangnya, lalu Reset password. Peserta tidak bisa mengatur ulang sendiri karena pendaftaran mandiri dimatikan.</p></div>'+
+        '<p class="small muted">Tekan tombol Kata sandi di baris orangnya pada halaman Mentor atau Peserta, lalu isi kata sandi baru. Mereka tidak bisa mengatur ulang sendiri karena alamat login bersifat internal dan pendaftaran mandiri dimatikan.</p></div>'+
     '</div></div>';
-}
-function akunNote(){
-  return '<div class="card" style="margin-top:16px"><div class="bd">'+
-    '<h3>Menambah orang baru</h3>'+
-    '<p class="small muted" style="margin-bottom:0">Akun dibuat dari dashboard Supabase: Authentication, Add user, lalu tambahkan baris profilnya di SQL Editor. '+
-    'Nama, toko, dan penugasan mentor tetap bisa diubah dari halaman ini.</p></div></div>';
 }
 
 /* ---------- halaman peserta ---------- */
@@ -1236,7 +1247,11 @@ function act(a,el){
     case 'logout': doLogout(); break;
 
     /* ---- orang ---- */
+    case 'pnew': openPForm(null); break;
     case 'ped': openPForm(d.id); break;
+    case 'mnew': openMForm(null); break;
+    case 'pwset': setPassword(d.id,d.nm); break;
+    case 'udel': deleteUser(d.id,d.nm); break;
     case 'pcancel': document.getElementById('pform').style.display='none'; break;
     case 'psave': savePerson(); break;
     case 'med': openMForm(d.id); break;
@@ -1287,7 +1302,12 @@ async function doLogin(){
   setBusy(true);
   const {error}=await SB.auth.signInWithPassword({email:loginEmail(user),password:pass});
   setBusy(false);
-  if(error){ $('#app').innerHTML=viewLogin('Nama pengguna atau kata sandi tidak cocok.'); bind(); return; }
+  if(error){
+    console.error('Login gagal:',error);
+    const detail=(error.message||'')+(error.status?(' (kode '+error.status+')'):'');
+    $('#app').innerHTML=viewLogin('Gagal masuk sebagai '+loginEmail(user)+'. Pesan dari server: '+detail);
+    bind(); return;
+  }
   await afterAuth();
 }
 async function doLogout(){
@@ -1316,15 +1336,48 @@ async function afterAuth(){
   }finally{ setBusy(false); }
 }
 
+/* ---------- pengelolaan akun lewat /api/users ---------- */
+async function api(payload){
+  const {data:{session}}=await SB.auth.getSession();
+  if(!session) throw new Error('Sesi berakhir. Silakan masuk ulang.');
+  const res=await fetch('/api/users',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+    body:JSON.stringify(payload)
+  });
+  let out=null;
+  try{ out=await res.json(); }catch(e){ out=null; }
+  if(!res.ok) throw new Error((out&&out.error)||('Server menjawab kode '+res.status+'.'));
+  return out;
+}
+function setPassword(id,nm){
+  const pw=prompt('Kata sandi baru untuk '+nm+'\n\nMinimal 6 karakter.');
+  if(pw===null) return;
+  if(pw.length<6){ alert('Kata sandi minimal 6 karakter.'); return; }
+  tx(async function(){ await api({action:'password',id:id,password:pw}); },'Kata sandi '+nm+' diganti.');
+}
+function deleteUser(id,nm){
+  if(!confirm('Hapus akun '+nm+' beserta seluruh pengerjaan dan penilaiannya?\n\nTindakan ini tidak bisa dibatalkan.')) return;
+  tx(async function(){ await api({action:'delete',id:id}); },'Akun '+nm+' dihapus.');
+}
+
 /* ---------- orang ---------- */
 function openPForm(id){
   const f=document.getElementById('pform'); if(!f) return; f.style.display='';
-  const p=P(id);
-  document.getElementById('pformtitle').textContent='Ubah peserta';
+  const p=id?P(id):null;
+  document.getElementById('pformtitle').textContent=p?'Ubah peserta':'Tambah peserta';
   document.getElementById('pf_id').value=p?p.id:'';
   document.getElementById('pf_name').value=p?p.name:'';
-  document.getElementById('pf_store').value=p?p.store:'';
+  document.getElementById('pf_store').value=p?(p.store||''):'';
   document.getElementById('pf_mentor').value=p?(p.mentorId||''):'';
+  const u=document.getElementById('pf_user'), pw=document.getElementById('pf_pass');
+  u.value=''; pw.value='';
+  u.disabled=!!p; u.placeholder=p?'tidak dapat diubah':'mis. rina.pratiwi';
+  pw.style.display=p?'none':'';
+  document.getElementById('pf_passlbl').style.display=p?'none':'';
+  document.getElementById('pf_hint').textContent=p
+    ? 'Untuk mengganti kata sandi, gunakan tombol Kata sandi di baris peserta.'
+    : 'Nama pengguna inilah yang diketik peserta di layar masuk.';
   f.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function savePerson(){
@@ -1332,20 +1385,39 @@ function savePerson(){
   const name=document.getElementById('pf_name').value.trim();
   const store=document.getElementById('pf_store').value.trim();
   const mentorId=document.getElementById('pf_mentor').value||null;
-  if(!id||!name){ alert('Nama peserta belum diisi.'); return; }
+  if(!name){ alert('Nama peserta belum diisi.'); return; }
+  if(id){
+    tx(async function(){
+      const {error}=await SB.from('profiles').update({name:name,store:store,mentor_id:mentorId}).eq('id',id);
+      if(error) throw error;
+    },'Peserta tersimpan.');
+    return;
+  }
+  const username=document.getElementById('pf_user').value.trim().toLowerCase();
+  const pass=document.getElementById('pf_pass').value;
+  if(!username){ alert('Nama pengguna belum diisi.'); return; }
+  if(pass.length<6){ alert('Kata sandi minimal 6 karakter.'); return; }
   tx(async function(){
-    const {error}=await SB.from('profiles').update({name:name,store:store,mentor_id:mentorId}).eq('id',id);
-    if(error) throw error;
-  },'Peserta tersimpan.');
+    await api({action:'create',role:'peserta',username:username,password:pass,
+      name:name,store:store,mentor_id:mentorId});
+  },'Peserta ditambahkan. Nama pengguna: '+username);
 }
 function openMForm(id){
   const f=document.getElementById('mform'); if(!f) return; f.style.display='';
-  const m=M(id);
-  document.getElementById('mformtitle').textContent='Ubah mentor';
+  const m=id?M(id):null;
+  document.getElementById('mformtitle').textContent=m?'Ubah mentor':'Tambah mentor';
   document.getElementById('mf_id').value=m?m.id:'';
   document.getElementById('mf_name').value=m?m.name:'';
-  document.getElementById('mf_region').value=m?m.region:'';
+  document.getElementById('mf_region').value=m?(m.region||''):'';
   document.getElementById('mf_email').value=m?(m.email||''):'';
+  const u=document.getElementById('mf_user'), pw=document.getElementById('mf_pass');
+  u.value=''; pw.value='';
+  u.disabled=!!m; u.placeholder=m?'tidak dapat diubah':'mis. dedi.kurniawan';
+  pw.style.display=m?'none':'';
+  document.getElementById('mf_passlbl').style.display=m?'none':'';
+  document.getElementById('mf_hint').textContent=m
+    ? 'Untuk mengganti kata sandi, gunakan tombol Kata sandi di baris mentor.'
+    : 'Nama pengguna inilah yang diketik mentor di layar masuk.';
   f.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function saveMentor(){
@@ -1353,11 +1425,22 @@ function saveMentor(){
   const name=document.getElementById('mf_name').value.trim();
   const region=document.getElementById('mf_region').value.trim();
   const email=document.getElementById('mf_email').value.trim();
-  if(!id||!name){ alert('Nama mentor belum diisi.'); return; }
+  if(!name){ alert('Nama mentor belum diisi.'); return; }
+  if(id){
+    tx(async function(){
+      const {error}=await SB.from('profiles').update({name:name,region:region,email:email}).eq('id',id);
+      if(error) throw error;
+    },'Mentor tersimpan.');
+    return;
+  }
+  const username=document.getElementById('mf_user').value.trim().toLowerCase();
+  const pass=document.getElementById('mf_pass').value;
+  if(!username){ alert('Nama pengguna belum diisi.'); return; }
+  if(pass.length<6){ alert('Kata sandi minimal 6 karakter.'); return; }
   tx(async function(){
-    const {error}=await SB.from('profiles').update({name:name,region:region,email:email}).eq('id',id);
-    if(error) throw error;
-  },'Mentor tersimpan.');
+    await api({action:'create',role:'mentor',username:username,password:pass,
+      name:name,region:region,email:email});
+  },'Mentor ditambahkan. Nama pengguna: '+username);
 }
 
 /* ---------- modul & lembar tugasnya ---------- */
