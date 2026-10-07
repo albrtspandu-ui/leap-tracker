@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LEAP Batch 5 — Readiness Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Questrial&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#15325C; --navy-2:#1E4580; --navy-ink:#0E2444;
+  --red:#C8102E; --red-soft:#FBE7EA;
+  --ice:#E6EEF8; --peach:#FBE3D4; --amber:#C27C12; --amber-soft:#FBEFD9;
+  --bg:#F4F6FA; --surface:#FFFFFF; --surface-2:#F8FAFD;
+  --line:#DCE3EC; --line-2:#C7D2E0;
+  --ink:#16202E; --muted:#5F6E82; --faint:#8A97A8;
+  --sidebar-bg:#15325C; --sidebar-ink:#D7E3F3; --sidebar-active:#1E4580;
+  --btn-ink:#FFFFFF;
+  --radius:12px; --radius-s:8px;
+  --shadow:0 1px 2px rgba(16,32,56,.06), 0 6px 18px rgba(16,32,56,.05);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --navy:#5E92D6; --navy-2:#7AA8E4; --navy-ink:#A9C7EE;
+    --red:#F2697E; --red-soft:#3A1B22;
+    --ice:#1C2634; --peach:#3A2A20; --amber:#E0A94A; --amber-soft:#332816;
+    --bg:#0E131B; --surface:#161D27; --surface-2:#1B2430;
+    --line:#28323F; --line-2:#36414F;
+    --ink:#E7EDF5; --muted:#9AA8BA; --faint:#7A889A;
+    --sidebar-bg:#111823; --sidebar-ink:#C6D5E8; --sidebar-active:#1F2C3D;
+    --btn-ink:#0E131B;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --navy:#5E92D6; --navy-2:#7AA8E4; --navy-ink:#A9C7EE;
+  --red:#F2697E; --red-soft:#3A1B22;
+  --ice:#1C2634; --peach:#3A2A20; --amber:#E0A94A; --amber-soft:#332816;
+  --bg:#0E131B; --surface:#161D27; --surface-2:#1B2430;
+  --line:#28323F; --line-2:#36414F;
+  --ink:#E7EDF5; --muted:#9AA8BA; --faint:#7A889A;
+  --sidebar-bg:#111823; --sidebar-ink:#C6D5E8; --sidebar-active:#1F2C3D;
+  --btn-ink:#0E131B;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px); -webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  font-size:14.5px; line-height:1.55;
+}
+h1,h2,h3,h4,.display{font-family:Questrial,"Century Gothic","IBM Plex Sans",sans-serif; font-weight:400; letter-spacing:-.01em}
+h1{font-size:1.85rem; margin:0 0 .15em}
+h2{font-size:1.3rem; margin:0 0 .4em}
+h3{font-size:1.05rem; margin:0 0 .4em}
+a{color:var(--navy)}
+button,input,select,textarea{font:inherit; color:inherit}
+::selection{background:var(--ice)}
+:focus-visible{outline:2px solid var(--navy-2); outline-offset:2px; border-radius:4px}
+@media (prefers-reduced-motion: reduce){*{transition:none !important; animation:none !important}}
+
+/* ---------- shell ---------- */
+.shell{display:flex; min-height:100%; min-height:100dvh}
+.side{
+  width:238px; flex:0 0 238px; background:var(--sidebar-bg); color:var(--sidebar-ink);
+  display:flex; flex-direction:column; position:sticky; top:0; align-self:flex-start;
+  height:100dvh; padding-top:env(safe-area-inset-top,0px);
+}
+.brand{padding:22px 20px 16px; border-bottom:1px solid rgba(255,255,255,.1)}
+.brand .mark{font-family:Questrial,sans-serif; font-size:1.3rem; color:#fff; line-height:1.1}
+.brand .mark em{font-style:normal; color:#FF6B7E}
+.brand .sub{font-size:.72rem; color:rgba(215,227,243,.75); margin-top:3px}
+.todaychip{display:inline-block; margin-top:9px; padding:4px 10px; border-radius:99px;
+  background:rgba(255,255,255,.12); color:#fff; font-size:.72rem}
+.nav{padding:12px 10px; overflow-y:auto; flex:1}
+.nav a{
+  display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:var(--radius-s);
+  color:var(--sidebar-ink); text-decoration:none; font-size:.9rem; margin-bottom:2px;
+}
+.nav a:hover{background:rgba(255,255,255,.07)}
+.nav a.on{background:var(--sidebar-active); color:#fff; font-weight:600}
+.nav .grp{font-size:.68rem; letter-spacing:.08em; color:rgba(215,227,243,.5); padding:14px 11px 5px; text-transform:uppercase}
+.whoami{padding:12px 14px; border-top:1px solid rgba(255,255,255,.1); font-size:.8rem}
+.whoami .nm{color:#fff}
+.whoami .rl{color:rgba(215,227,243,.7); font-size:.74rem}
+.whoami button{margin-top:8px; width:100%; background:rgba(255,255,255,.1); border:0; color:#fff; padding:7px; border-radius:var(--radius-s); cursor:pointer}
+.whoami button:hover{background:rgba(255,255,255,.18)}
+
+.main{flex:1; min-width:0; display:flex; flex-direction:column}
+.topbar{
+  display:none; align-items:center; gap:10px; background:var(--sidebar-bg); color:#fff;
+  padding:10px 14px; position:sticky; top:0; z-index:40;
+  padding-top:calc(10px + env(safe-area-inset-top,0px));
+}
+.topbar button{background:rgba(255,255,255,.12); border:0; color:#fff; border-radius:8px; padding:7px 10px; cursor:pointer}
+.wrap{padding:26px 30px 60px; max-width:1180px; width:100%}
+.pagehead{margin-bottom:20px}
+.pagehead p{color:var(--muted); margin:.2em 0 0; max-width:66ch}
+
+/* ---------- primitives ---------- */
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
+.card>.hd{padding:14px 18px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap}
+.card>.hd h3{margin:0}
+.card>.bd{padding:18px}
+.card>.bd.tight{padding:0}
+.grid{display:grid; gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.spread{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap}
+.stack{display:flex; flex-direction:column; gap:14px}
+.muted{color:var(--muted)}
+.small{font-size:.82rem}
+.mono-num{font-variant-numeric:tabular-nums}
+
+.btn{
+  display:inline-flex; align-items:center; gap:7px; background:var(--navy); color:var(--btn-ink); border:1px solid var(--navy);
+  padding:8px 15px; border-radius:var(--radius-s); cursor:pointer; font-size:.88rem; font-weight:500;
+}
+.btn:hover{background:var(--navy-2); border-color:var(--navy-2)}
+.btn.ghost{background:transparent; color:var(--navy); border-color:var(--line-2)}
+.btn.ghost:hover{background:var(--ice)}
+.btn.danger{background:var(--red); border-color:var(--red); color:var(--btn-ink)}
+.btn.danger:hover{filter:brightness(1.08)}
+.btn.sm{padding:5px 10px; font-size:.8rem}
+.btn[disabled]{opacity:.45; cursor:not-allowed}
+
+label.f{display:block; margin-bottom:12px}
+label.f>span{display:block; font-size:.8rem; color:var(--muted); margin-bottom:4px}
+input[type=text],input[type=date],input[type=password],input[type=number],select,textarea{
+  width:100%; padding:8px 10px; border:1px solid var(--line-2); border-radius:var(--radius-s);
+  background:var(--surface); color:var(--ink);
+}
+textarea{min-height:68px; resize:vertical}
+input:disabled,select:disabled,textarea:disabled{background:var(--surface-2); color:var(--muted)}
+
+table{width:100%; border-collapse:collapse}
+th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:middle}
+th{font-size:.76rem; color:var(--muted); font-weight:600; background:var(--surface-2)}
+tbody tr:last-child td{border-bottom:0}
+.tscroll{overflow-x:auto}
+
+.pill{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:99px; font-size:.75rem; font-weight:600; white-space:nowrap}
+.pill.siap{background:var(--ice); color:var(--navy)}
+.pill.damping{background:var(--amber-soft); color:var(--amber)}
+.pill.belum{background:var(--red-soft); color:var(--red)}
+.pill.flat{background:var(--surface-2); color:var(--muted); border:1px solid var(--line)}
+.pill.late{background:var(--red-soft); color:var(--red)}
+.pill.done{background:var(--ice); color:var(--navy)}
+.pill.wait{background:var(--amber-soft); color:var(--amber)}
+
+.score{font-family:Questrial,sans-serif; font-size:2.1rem; line-height:1; font-variant-numeric:tabular-nums}
+.scorebar{height:6px; border-radius:99px; background:var(--line); overflow:hidden; margin-top:9px}
+.scorebar i{display:block; height:100%; background:var(--navy)}
+.scorebar i.damping{background:var(--amber)}
+.scorebar i.belum{background:var(--red)}
+
+.rate{display:flex; gap:5px; flex-wrap:wrap}
+.rate button{
+  border:1px solid var(--line-2); background:var(--surface); border-radius:99px;
+  padding:4px 11px; font-size:.78rem; cursor:pointer; color:var(--muted); white-space:nowrap;
+}
+.rate button:hover{border-color:var(--navy)}
+.rate button.on[data-v="1"]{background:var(--red-soft); border-color:var(--red); color:var(--red); font-weight:600}
+.rate button.on[data-v="2"]{background:var(--ice); border-color:var(--navy); color:var(--navy); font-weight:600}
+.rate button.on[data-v="3"]{background:var(--navy); border-color:var(--navy); color:var(--btn-ink); font-weight:600}
+.rate button[disabled]{opacity:.55; cursor:not-allowed}
+
+.tabs{display:flex; gap:3px; border-bottom:1px solid var(--line); overflow-x:auto; margin-bottom:18px}
+.tabs a{
+  padding:9px 14px; text-decoration:none; color:var(--muted); font-size:.88rem;
+  border-bottom:2px solid transparent; white-space:nowrap;
+}
+.tabs a.on{color:var(--navy); border-bottom-color:var(--red); font-weight:600}
+
+.empty{padding:30px 18px; text-align:center; color:var(--muted)}
+.empty strong{display:block; color:var(--ink); font-family:Questrial,sans-serif; font-size:1.05rem; margin-bottom:4px}
+
+.item{padding:14px 0; border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .lbl{font-weight:600; margin-bottom:7px}
+.pgroup{border:1px solid var(--line); border-radius:var(--radius); margin-bottom:14px; overflow:hidden}
+.pgroup>.ph{background:var(--surface-2); padding:10px 14px; font-weight:600; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap}
+.pgroup>.pb{padding:4px 14px}
+
+.savebar{
+  position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--line);
+  padding:12px 18px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  border-radius:0 0 var(--radius) var(--radius);
+  padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));
+}
+.toast{
+  position:fixed; left:50%; transform:translateX(-50%); bottom:26px; z-index:200;
+  background:var(--navy-ink); color:#fff; padding:10px 18px; border-radius:99px; font-size:.86rem;
+  box-shadow:0 8px 28px rgba(0,0,0,.25);
+  bottom:calc(26px + env(safe-area-inset-bottom,0px));
+}
+
+/* ---------- login ---------- */
+.login{min-height:100dvh; display:grid; place-items:center; padding:24px; background:
+  radial-gradient(1100px 500px at 15% -10%, var(--ice), transparent 60%), var(--bg)}
+.login .box{width:100%; max-width:410px}
+.login .brandbig{font-family:Questrial,sans-serif; font-size:2.4rem; line-height:1.05; margin-bottom:4px}
+.login .brandbig em{font-style:normal; color:var(--red)}
+.demo{margin-top:14px; font-size:.8rem; color:var(--muted)}
+.demo code{background:var(--surface-2); border:1px solid var(--line); padding:1px 5px; border-radius:5px; font-size:.95em}
+.err{background:var(--red-soft); color:var(--red); padding:8px 11px; border-radius:var(--radius-s); font-size:.84rem; margin-bottom:12px}
+
+/* ---------- timeline ---------- */
+.tl{overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface)}
+.tlinner{min-width:860px}
+.tlhead{display:flex; border-bottom:1px solid var(--line)}
+.tlhead .lab{flex:0 0 250px; padding:10px 14px; font-size:.76rem; color:var(--muted); font-weight:600; background:var(--surface-2)}
+.tlhead .mon{flex:1; display:flex}
+.tlhead .mon div{flex:1; text-align:center; padding:10px 4px; font-size:.82rem; font-weight:600; color:#fff; background:var(--navy); border-left:1px solid rgba(255,255,255,.18)}
+.tlhead .mon div:nth-child(even){background:var(--navy-2)}
+.tlgrp{display:flex; align-items:stretch; border-bottom:1px solid var(--line)}
+.tlgrp:last-child{border-bottom:0}
+.tlgrp>.gname{
+  flex:0 0 96px; display:grid; place-items:center; text-align:center; font-size:.8rem; font-weight:600;
+  color:#fff; background:var(--navy); padding:8px 6px;
+}
+.tlgrp[data-g="Mentor"]>.gname{background:var(--red)}
+.tlgrp[data-g="Assessment"]>.gname{background:#8A0A1E}
+.tlgrp[data-g="Execution"]>.gname{background:var(--navy-2)}
+.tlrows{flex:1; min-width:0}
+.tlrow{display:flex; align-items:center; border-bottom:1px solid var(--line); min-height:38px}
+.tlrow:last-child{border-bottom:0}
+.tlrow:nth-child(odd){background:var(--surface-2)}
+.tlrow .lab{flex:0 0 154px; padding:6px 12px; font-size:.82rem; font-weight:600}
+.tltrack{flex:1; position:relative; height:38px; min-width:0}
+.tlbar{position:absolute; top:11px; height:16px; border-radius:5px; background:var(--navy); min-width:7px}
+.tlbar.soft{background:var(--ice); border:1px solid var(--line-2)}
+.tlbar.mentor{background:var(--peach); border:1px solid #E8BE9F}
+.tlbar.red{background:var(--red)}
+.tldot{position:absolute; top:12px; width:14px; height:14px; background:var(--red); transform:translateX(-50%) rotate(45deg); border-radius:2px}
+.tlnote{position:absolute; top:10px; font-size:.75rem; white-space:nowrap; color:var(--ink)}
+.tlnote.inbar{color:#fff; font-weight:600}
+.tltoday{position:absolute; top:0; bottom:0; width:2px; background:var(--red); opacity:.75}
+
+.rub{border:1px solid var(--line); border-left:3px solid var(--line-2); border-radius:var(--radius-s); padding:9px 11px; background:var(--surface-2)}
+.rub[data-v="1"]{border-left-color:var(--red)}
+.rub[data-v="2"]{border-left-color:var(--navy-2)}
+.rub[data-v="3"]{border-left-color:var(--navy)}
+.rub .rh{font-size:.74rem; font-weight:700; color:var(--muted); margin-bottom:3px}
+.secbox{background:var(--ice); border-radius:var(--radius-s); padding:11px 14px; margin-bottom:6px}
+.sech{font-size:.74rem; font-weight:700; color:var(--navy); margin-bottom:5px; letter-spacing:.02em}
+.sech2{font-family:Questrial,sans-serif; font-size:1.02rem; color:var(--navy);
+  margin:20px 0 2px; padding-bottom:6px; border-bottom:1px solid var(--line)}
+.sech2 span{font-family:"IBM Plex Sans",sans-serif; font-size:.74rem; color:var(--muted); font-weight:400}
+.sech2 span::before{content:"· "}
+.modblk{margin-bottom:26px}
+.modhd{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:0 2px 10px; border-bottom:2px solid var(--navy); margin-bottom:14px}
+.modhd h2{font-size:1.15rem}
+
+@media (max-width:860px){
+  .side{position:fixed; left:0; top:0; z-index:60; transform:translateX(-100%); transition:transform .18s ease; box-shadow:0 0 40px rgba(0,0,0,.3)}
+  .side.open{transform:none}
+  .topbar{display:flex}
+  .wrap{padding:18px 15px 56px}
+  h1{font-size:1.45rem}
+  .scrim{position:fixed; inset:0; background:rgba(8,14,24,.5); z-index:55}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ============================================================
+   LEAP Batch 5 — Readiness Tracker (prototype)
+   Komponen nilai: Tugas Modul + Checkpoint 1–4, bobot sama.
+   Tugas yang belum divalidasi mentor dihitung bernilai 1.
+   Data disimpan di localStorage browser ini saja.
+   ============================================================ */
+const KEY='leap5_tracker_v6';
+const RATE=[
+ {v:1,label:'Belum Mampu'},
+ {v:2,label:'Mampu Sesuai Standar'},
+ {v:3,label:'Mampu Melebihi Standar'}
+];
+const MONTHS=[1,2,3,4];
+const TRACKS={ecourse:'Online E-Course',workshop:'Offline Workshop',live:'Online Live Session',other:'Lainnya'};
+/* 8 modul Bulan 1 beserta tugasnya, disalin dari LEAP_Batch5_Template_Tugas_Peserta1.xlsx */
+const DEFRUB={
+  1:'Belum mengerjakan, atau isian dan evidence belum memenuhi yang diminta.',
+  2:'Dikerjakan lengkap sesuai yang diminta, evidence sahih dan dapat ditelusuri.',
+  3:'Melebihi yang diminta: analisis lebih dalam, dampak terukur, dan sudah menjadi kebiasaan kerja.'
+};
+const MODSEED=[
+{
+ no:1, name:'AI for Productivity Booster', track:'workshop',
+ fac:'Bp. Paul Soegianto — COO', ses:'15 Okt 2026', due:'2026-10-30',
+ comp:'K1 Modern & Forward-Thinking Mindset',
+ obj:[
+  'Memakai tools AI untuk mempercepat pekerjaan analisa dan administrasi toko',
+  'Membedakan pekerjaan yang boleh dibantu AI dan yang tetap harus diputuskan sendiri',
+  'Mengecek ulang hasil AI, dan tahu data apa yang tidak boleh dimasukkan'
+ ],
+ act:[
+  ['Use case 1 — pekerjaan apa','Pekerjaan rutin yang paling menyita waktu Anda.'],
+  ['Use case 1 — tools & cara pakai','Tools apa yang dipakai dan bagaimana Anda memakainya.'],
+  ['Use case 1 — waktu sebelum vs sesudah','Berapa lama biasanya vs setelah dibantu AI. Hemat berapa per minggu.'],
+  ['Use case 2 — pekerjaan apa','Pekerjaan rutin yang paling menyita waktu Anda.'],
+  ['Use case 2 — tools & cara pakai','Tools apa yang dipakai dan bagaimana Anda memakainya.'],
+  ['Use case 2 — waktu sebelum vs sesudah','Berapa lama biasanya vs setelah dibantu AI. Hemat berapa per minggu.'],
+  ['Pemakaian pada Action Plan','Bagian mana dari Action Plan Anda yang disusun atau diperiksa dengan bantuan AI.'],
+  ['Contoh hasil AI yang Anda koreksi','Apa yang salah dari hasil AI dan bagaimana Anda memperbaikinya.'],
+  ['Kepatuhan data','Data apa yang Anda hindari memasukkan, dan alasannya.']
+ ],
+ ev:[
+  'Tabel 2 use case: pekerjaan, tools, waktu sebelum vs sesudah, hemat per minggu',
+  'Tangkapan layar hasil kerja (data sensitif disamarkan)',
+  'Satu contoh hasil AI yang dikoreksi beserta alasannya'
+ ],
+ chk:[
+  'Use case masih dipakai saat mentor bertanya di Bulan 2, bukan hanya saat kelas',
+  'Penghematan waktunya wajar, bukan angka asal',
+  'Peserta paham batas data perusahaan yang boleh dipakai',
+  'Hasil AI diperiksa peserta, tidak dipakai mentah'
+ ]
+},
+{
+ no:2, name:'Business Analysis', track:'workshop',
+ fac:'Ivan Suryadi', ses:'15–16 Okt 2026', due:'2026-10-30',
+ comp:'K2 Strategic & Critical Thinking',
+ obj:[
+  'Membaca laporan sales, stok, shrinkage, dan produktivitas tanpa dibantu',
+  'Menetapkan KPI yang jelas angkanya dan nyambung dengan target toko',
+  'Menyusun target berdasarkan data tahun sebelumnya, bukan perkiraan kasar'
+ ],
+ act:[
+  ['Pillar prioritas 1 — KPI','Nama pillar, KPI, satuan.'],
+  ['Pillar prioritas 1 — baseline & target','Kondisi awal (angka), target, periode pencapaian.'],
+  ['Pillar prioritas 1 — sumber data & cara ukur','Laporan apa, diambil dari mana, diukur berapa sering.'],
+  ['Pillar prioritas 2 — KPI, baseline, target, sumber data',''],
+  ['Pillar prioritas 3 — KPI, baseline, target, sumber data',''],
+  ['Data historis yang dipakai','Periode berapa bulan, dari laporan apa.'],
+  ['Asumsi di balik target','Kenapa target itu yang dipilih, apa yang diasumsikan.'],
+  ['Hasil pembahasan dengan mentor','Tanggal pembahasan dan apa yang disesuaikan setelahnya.']
+ ],
+ ev:[
+  'Tabel KPI per pillar: baseline, target, satuan, sumber data, periode ukur',
+  'Lampiran data historis minimal 6 bulan (cetakan laporan atau ekspor sistem)',
+  'Catatan asumsi di balik setiap target'
+ ],
+ chk:[
+  'KPI betul terukur, bukan kalimat umum',
+  'Target realistis dibanding data historis dan kondisi toko',
+  'Sumber data bisa diakses ulang untuk verifikasi bulanan',
+  'Angka target disetujui mentor sebelum dikunci'
+ ]
+},
+{
+ no:3, name:'Peran dan Tanggung Jawab Pemimpin', track:'live',
+ fac:'Sahat Uli', ses:'26 Okt 2026', due:'2026-11-06',
+ comp:'K6 Ownership & Execution Excellence',
+ obj:[
+  'Menerjemahkan strategi perusahaan menjadi prioritas kerja di tokonya',
+  'Menjalankan peran Store Manager, dari eksekusi operasional dan analisis kinerja sampai pengembangan tim',
+  'Mengenali kesenjangan kompetensi dirinya dan menyusun rencana pengembangan menuju posisi Store Manager'
+ ],
+ act:[
+  ['Prioritas perusahaan yang Anda ambil','Dua sampai tiga prioritas strategi perusahaan yang paling menyentuh toko Anda.'],
+  ['Terjemahannya di toko Anda','Untuk setiap prioritas: apa yang berubah di toko Anda, siapa yang mengerjakan, kapan.'],
+  ['Eksekusi operasional — log keputusan shift','Minimal 2 minggu shift Anda sendiri, minimal 10 baris: tanggal, situasi, dan Anda putuskan sendiri / tunda sampai SM datang / eskalasi ke RM.'],
+  ['Keputusan yang Anda tunda atau lempar','Alasannya: memang di luar kewenangan, atau Anda ragu, atau belum tahu caranya. Bedakan ketiganya dengan jujur.'],
+  ['Analisis kinerja — satu KPI yang meleset','KPI apa, selisihnya berapa, penyebabnya apa menurut data, dan apa yang Anda lakukan.'],
+  ['Pengembangan tim — satu orang','Siapa (jabatan saja), apa yang perlu dikembangkan, apa yang Anda lakukan bulan ini, hasilnya.'],
+  ['Penilaian diri atas 7 kompetensi SM','Untuk tiap kompetensi: Level 1 / 2 / 3, beserta bukti singkat kenapa Anda menilai begitu.'],
+  ['Kesenjangan terbesar Anda','Dua kompetensi yang paling lemah dan alasannya, bukan sekadar menyebut nama kompetensi.'],
+  ['Rencana pengembangan 3 bulan','Untuk tiap gap: apa yang Anda kerjakan, dukungan apa yang dibutuhkan, dan apa ukuran berhasilnya.']
+ ],
+ ev:[
+  'Tabel prioritas perusahaan → tindakan di toko',
+  'Log keputusan shift minimal 10 baris, beserta tanggal',
+  'Analisis 1 KPI yang meleset beserta data pendukungnya',
+  'Catatan sesi coaching atau pengembangan anggota tim',
+  'Lembar penilaian diri atas 7 kompetensi Store Manager',
+  'Rencana pengembangan 3 bulan yang ditandatangani peserta dan mentor'
+ ],
+ chk:[
+  'Prioritas di toko berdasar pada turunan dari strategi perusahaan',
+  'Log keputusan bersifat objektif',
+  'Keputusan yang ditunda memang karena batas kewenangan, bukan karena ragu atau menghindar',
+  'Analisis KPI memakai data, bukan dugaan',
+  'Pengembangan tim betul terjadi — mentor boleh menanyakan langsung ke orang yang bersangkutan',
+  'Penilaian diri wajar, tidak terlalu tinggi maupun merendah berlebihan',
+  'Rencana pengembangan realistis dan disepakati mentor'
+ ]
+},
+{
+ no:4, name:'Customer Experience', track:'live',
+ fac:'Felly Chandra', ses:'27 Okt 2026', due:'2026-11-06',
+ comp:'K1 Modern & Forward-Thinking Mindset',
+ obj:[
+  'Membaca keluhan dan perilaku pelanggan sebagai data, bukan kejadian lepas',
+  'Menjaga toko mengikuti tren fashion dan retail yang sedang berjalan'
+ ],
+ act:[
+  ['Sumber data keluhan','Saluran apa saja yang Anda kumpulkan dan periode datanya.'],
+  ['Rekap per kategori','Kategori keluhan dan jumlahnya. Urutkan dari terbanyak.'],
+  ['Pola terbesar & dugaan penyebabnya','Pola apa yang paling sering muncul, dan apa penyebabnya menurut Anda.'],
+  ['Perbaikan yang dijalankan','Apa yang diperbaiki, kapan mulai, siapa yang mengerjakan.'],
+  ['Angka keluhan sebelum vs sesudah','Jumlah keluhan kategori itu sebelum dan sesudah perbaikan.'],
+  ['Yang Anda simpulkan','Apakah perbaikannya menyentuh penyebab atau hanya meredakan keluhan.']
+ ],
+ ev:[
+  'Rekap keluhan: jumlah per kategori, periode, sumber',
+  'Satu perbaikan yang dijalankan: apa, kapan, oleh siapa',
+  'Angka keluhan sebelum vs sesudah perbaikan'
+ ],
+ chk:[
+  'Datanya dari lapangan, bukan dikira-kira',
+  'Perbaikannya menyentuh penyebab, bukan hanya meredakan keluhan',
+  'Mentor melakukan pengamatan langsung di toko sekali',
+  'Angka sebelum–sesudah bisa ditelusuri sumbernya'
+ ]
+},
+{
+ no:5, name:'Risk Management, Internal Audit & Sysdur (RMIA)', track:'live',
+ fac:'Tim RMIA', ses:'28 Okt 2026', due:'2026-11-06',
+ comp:'K4 Decision-Making & Problem Solving',
+ obj:[
+  'Mengenali risiko operasional di tokonya dan menentukan cara penanganannya',
+  'Menjalankan kontrol internal sesuai SOP, Peraturan Perusahaan, dan Code of Conduct, termasuk pengendalian shrinkage',
+  'Membangun budaya integritas dan kesiapan tanggap darurat di tokonya'
+ ],
+ act:[
+  ['Register risiko toko Anda','Daftar risiko operasional beserta kemungkinan (rendah/sedang/tinggi) dan dampaknya.'],
+  ['Cara penanganan tiap risiko','Untuk tiap risiko: dihindari, dikurangi, dialihkan, atau diterima — beserta alasannya.'],
+  ['Tiga risiko teratas & pemiliknya','Risiko mana yang diprioritaskan dan siapa penanggung jawabnya.'],
+  ['Hasil pemeriksaan kontrol internal','Periksa pelaksanaan SOP kunci di toko Anda. Mana yang berjalan, mana yang tidak, dan kenapa.'],
+  ['Shrinkage','Angka shrinkage terkini, penyebab yang paling dominan, dan langkah pengendalian yang Anda jalankan.'],
+  ['Peraturan Perusahaan & Code of Conduct','Bagaimana dan kapan Anda menyosialisasikan ke tim. Sertakan satu situasi integritas yang pernah Anda hadapi dan bagaimana Anda menanganinya.'],
+  ['Kesiapan tanggap darurat','Hasil pemeriksaan jalur evakuasi, APAR, P3K, dan kontak darurat. Temuan apa yang muncul.'],
+  ['Perbaikan yang dijalankan','Minimal 1 temuan yang sudah Anda tindaklanjuti: apa, kapan, hasilnya.'],
+  ['Kaitan ke Action Plan 7 Pillar','Risiko mana yang bisa menggagalkan rencana Anda, dan mitigasinya.']
+ ],
+ ev:[
+  'Register risiko: risiko, kemungkinan, dampak, cara penanganan, pemilik',
+  'Hasil pemeriksaan kepatuhan SOP di toko',
+  'Data shrinkage dari laporan resmi — sebelum dan sesudah langkah pengendalian',
+  'Bukti sosialisasi Peraturan Perusahaan / Code of Conduct (daftar hadir, foto, atau notulen)',
+  'Checklist kesiapan tanggap darurat + foto kondisi',
+  'Kolom risiko & mitigasi yang sudah terisi pada Action Plan 7 Pillar'
+ ],
+ chk:[
+  'Risikonya sesuai kondisi nyata toko dan temuan audit, bukan daftar umum',
+  'Cara penanganannya masuk akal dengan sumber daya yang ada',
+  'Kontrol internal betul dijalankan, bukan hanya ada dokumennya',
+  'Angka shrinkage berasal dari laporan resmi dan bisa ditelusuri',
+  'Tim tahu isi Code of Conduct — mentor boleh menanyakan langsung ke 1–2 anggota tim',
+  'Perlengkapan darurat betul diperiksa, bukan disalin dari checklist lama',
+  'Peserta menindaklanjuti temuan sendiri, tidak menunggu diperintah'
+ ]
+},
+{
+ no:6, name:'Employee & Industrial Relation', track:'live',
+ fac:'Fuad Darmawan', ses:'29 Okt 2026', due:'2026-11-13',
+ comp:'K3 Leadership & People Management',
+ obj:[
+  'Menangani pelanggaran SOP dengan langkah yang benar secara prosedural',
+  'Tahu kapan harus melibatkan Region Manager dan HR, dan kapan cukup ditangani di toko'
+ ],
+ act:[
+  ['Kasus 1 — uraian singkat','Tanpa menyebut nama karyawan. Cukup jabatan dan kronologi.'],
+  ['Kasus 1 — langkah yang seharusnya & dasar ketentuannya','Urutan langkah dan aturan yang mendasarinya.'],
+  ['Kasus 2 — uraian singkat',''],
+  ['Kasus 2 — langkah yang seharusnya & dasar ketentuannya',''],
+  ['Kasus yang Anda tangani sendiri','Kasus mana, kapan, langkah apa yang Anda ambil.'],
+  ['Kapan Anda melibatkan mentor atau HR','Titik mana yang Anda nilai di luar kewenangan Anda, dan alasannya.'],
+  ['Dokumentasi yang Anda buat','Dokumen apa saja yang dihasilkan dari penanganan itu.']
+ ],
+ ev:[
+  'Uraian 2 kasus + langkah yang benar + dasar ketentuan (tanpa nama karyawan)',
+  'Bukti penanganan 1 kasus: berita acara, catatan pembinaan, atau dokumen sejenis',
+  'Catatan kapan mentor atau HR dilibatkan'
+ ],
+ chk:[
+  'Langkahnya sesuai ketentuan, terutama urutan pembinaan sebelum sanksi',
+  'Dokumentasinya layak dipakai bila kasus berlanjut',
+  'Peserta tahu batas kewenangannya',
+  'Kerahasiaan karyawan terjaga — bila kasus sensitif, mentor cukup menyatakan sah tanpa merinci'
+ ]
+},
+{
+ no:7, name:'E Bazaar', track:'live',
+ fac:'Fuad Darmawan', ses:'29 Okt 2026', due:'2026-11-13',
+ comp:'K5 Innovation & Change Leadership',
+ obj:[
+  'Menjalankan mekanisme E Bazaar sesuai ketentuan',
+  'Memakai E Bazaar sebagai cara mendorong sales, bukan sekadar menjalankan program'
+ ],
+ act:[
+  ['Rencana kegiatan','Konsep kegiatan, tanggal, lokasi di toko.'],
+  ['Target sales & dasar perhitungannya','Angka target dan dari mana angka itu diambil.'],
+  ['Kebutuhan','Tempat, barang, orang, biaya.'],
+  ['Pihak yang dikoordinasikan','Siapa saja, untuk urusan apa.'],
+  ['Jalur pengajuan & tindak lanjut','Kapan diajukan, ke siapa, kapan Anda menindaklanjuti.'],
+  ['Status pengajuan terakhir','Disetujui / diproses / ditolak, beserta alasannya.'],
+  ['Hasil bila sudah terlaksana','Sales aktual vs target, dan apa yang berbeda dari rencana.']
+ ],
+ ev:[
+  'Proposal kegiatan 1 halaman: target, tanggal, kebutuhan, pihak terkait',
+  'Bukti koordinasi (email, chat resmi, atau notulen)',
+  'Laporan hasil bila sudah terlaksana; bila belum, status pengajuan terakhir'
+ ],
+ chk:[
+  'Target sales-nya berdasar, bukan angka bulat asal',
+  'Peserta mengurus koordinasinya sendiri, tidak menumpang mentor',
+  'Tindak lanjutnya berjalan, tidak berhenti setelah diajukan',
+  'Kebutuhan dan biaya dihitung, bukan diperkirakan kasar'
+ ]
+},
+{
+ no:8, name:'Finance Operation', track:'live',
+ fac:'Elny Santi', ses:'30 Okt 2026', due:'2026-11-13',
+ comp:'K6 Ownership & Execution Excellence',
+ obj:[
+  'Mengikuti alur transaksi, kontrol kas, dan pelaporan keuangan toko',
+  'Mengenali titik yang rawan selisih dan berdampak ke EBIT'
+ ],
+ act:[
+  ['Hasil pemeriksaan alur transaksi','Bagian mana yang sudah sesuai ketentuan, bagian mana yang tidak.'],
+  ['Titik rawan 1','Titik apa, alasannya (kejadian nyata atau temuan audit), potensi dampak ke EBIT.'],
+  ['Titik rawan 2','Titik apa, alasannya (kejadian nyata atau temuan audit), potensi dampak ke EBIT.'],
+  ['Titik rawan 3','Titik apa, alasannya (kejadian nyata atau temuan audit), potensi dampak ke EBIT.'],
+  ['Titik yang Anda perbaiki','Titik mana, apa yang diubah, kapan mulai.'],
+  ['Selisih sebelum vs sesudah','Angka selisih 2 minggu sebelum dan 2 minggu sesudah perbaikan.'],
+  ['Apakah perbaikannya bertahan','Kondisi saat tugas dikumpulkan.']
+ ],
+ ev:[
+  'Daftar 3 titik rawan: titik, alasan, potensi dampak ke EBIT',
+  'Bukti perbaikan 1 titik kontrol',
+  'Angka selisih sebelum vs sesudah selama 2 minggu'
+ ],
+ chk:[
+  'Titik rawannya sesuai temuan audit atau kejadian nyata di toko',
+  'Dampaknya dihitung, bukan hanya disebut besar',
+  'Perbaikannya bertahan, tidak kembali longgar setelah 2 minggu',
+  'Angka selisih bisa ditelusuri ke laporan resmi'
+ ]
+}
+];
+function buildModules(){
+  const modules=[], tasks=[];
+  MODSEED.forEach(function(m){
+    const mid=uid('md');
+    modules.push({id:mid,name:m.name,track:m.track,facilitator:m.fac,session:m.ses,competency:m.comp,order:m.no});
+    tasks.push({
+      id:uid('t'), scope:'mod', moduleId:mid,
+      code:'TUGAS '+m.no, title:m.name, due:m.due,
+      obj:m.obj.slice(),
+      act:m.act.map((a,i)=>({id:'a'+(i+1),label:a[0],guide:a[1]})),
+      ev:m.ev.map((e,i)=>({id:'e'+(i+1),label:e})),
+      chk:m.chk.map((c,i)=>({id:'c'+(i+1),label:c})),
+      rubric:{1:DEFRUB[1],2:DEFRUB[2],3:DEFRUB[3]}
+    });
+  });
+  return {modules:modules,tasks:tasks};
+}
+
+
+/* ---------- utils ---------- */
+const $=s=>document.querySelector(s);
+const uid=p=>p+Math.random().toString(36).slice(2,8);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const BL=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+function fdate(iso){ if(!iso) return '—'; const d=new Date(iso+'T00:00:00'); if(isNaN(d)) return '—';
+  return d.getDate()+' '+BL[d.getMonth()]+' '+d.getFullYear(); }
+function fstamp(iso){ if(!iso) return '—'; const d=new Date(iso); if(isNaN(d)) return '—';
+  return d.getDate()+' '+BL[d.getMonth()]+' '+d.getFullYear()+', '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function avg(a){ return a.length? a.reduce((x,y)=>x+y,0)/a.length : null; }
+function n1(x){ return x==null?'—':(Math.round(x*100)/100).toFixed(2); }
+function kb(n){ return n?Math.round(n/1024)+' KB':''; }
+
+/* ---------- seed ---------- */
+function seed(){
+  const users=[{id:uid('u'),username:'admin',password:'admin123',role:'admin',refId:null,name:'Program Manager'}];
+  const built=buildModules();
+  const modules=built.modules;
+  const tasks=built.tasks.concat([
+    {id:uid('t'),scope:'cp',cp:1,code:'T1',title:'Business Outcome & Success Indicator',
+     desc:'Tetapkan outcome bisnis toko dan indikator keberhasilannya, lengkap dengan angka baseline.',due:'2026-10-30',accept:'both'},
+    {id:uid('t'),scope:'cp',cp:1,code:'T2',title:'Root Cause Analysis',
+     desc:'Uraikan akar masalah di balik indikator yang belum tercapai memakai 5 Whys atau fishbone.',due:'2026-10-30',accept:'both'},
+    {id:uid('t'),scope:'cp',cp:1,code:'T3',title:'Project Charter & DFV Assessment',
+     desc:'Susun Project Charter inisiatif perbaikan dan nilai Desirability, Feasibility, Viability-nya.',due:'2026-11-06',accept:'file'},
+    {id:uid('t'),scope:'cp',cp:2,code:'T4',title:'Action Plan 3 Pilar Prioritas',
+     desc:'Rencana aksi untuk tiga pilar prioritas: target, timeline, dan penanggung jawab.',due:'2026-11-20',accept:'both'}
+  ]);
+  return {
+    version:6,
+    session:null,
+    users, mentors:[], participants:[], modules, tasks,
+    checkpoints:[
+      {m:1,name:'Checkpoint 1 — Kesiapan',start:'2026-10-24',end:'2026-10-31'},
+      {m:2,name:'Checkpoint 2 — 3 Pilar Prioritas',start:'2026-11-25',end:'2026-11-30'},
+      {m:3,name:'Checkpoint 3 — 4 Pilar Sisanya',start:'2026-12-15',end:'2026-12-31'},
+      {m:4,name:'Checkpoint 4 — Seluruh 7 Pilar',start:'2027-01-20',end:'2027-01-31'}
+    ],
+    submissions:{},
+    assessments:{},
+    settings:{thBelum:1.6,thSiap:2.0},
+    timeline:{
+      groups:['Learning','Execution','Mentor','Assessment'],
+      items:[
+        {id:uid('x'),g:'Learning',row:'Online E-Course',start:'2026-10-01',end:'2026-10-08',kind:'bar',style:'navy',note:'1–8 Okt'},
+        {id:uid('x'),g:'Learning',row:'Offline Training',start:'2026-10-09',end:'2026-10-15',kind:'bar',style:'navy',note:'9–15 Okt · Tangerang'},
+        {id:uid('x'),g:'Learning',row:'Store Visit',start:'2026-10-10',end:'2026-10-10',kind:'milestone',style:'navy',note:'10 Okt · MDS Atrium'},
+        {id:uid('x'),g:'Learning',row:'In-Store Application',start:'2026-10-19',end:'2026-10-24',kind:'bar',style:'navy',note:'19–24 Okt · Project Charter & DFV'},
+        {id:uid('x'),g:'Learning',row:'Online Live Session',start:'2026-10-26',end:'2026-10-30',kind:'bar',style:'navy',note:'26–30 Okt'},
+        {id:uid('x'),g:'Execution',row:'Phase 1 · Top 3',start:'2026-11-01',end:'2026-11-30',kind:'bar',style:'soft',note:'November'},
+        {id:uid('x'),g:'Execution',row:'Phase 2 · Other 4',start:'2026-12-01',end:'2026-12-31',kind:'bar',style:'soft',note:'Desember'},
+        {id:uid('x'),g:'Execution',row:'Consolidation',start:'2027-01-01',end:'2027-01-22',kind:'bar',style:'soft',note:'Submit 22 Jan'},
+        {id:uid('x'),g:'Mentor',row:'Bi-weekly Mentoring',start:'2026-11-01',end:'2027-01-31',kind:'bar',style:'mentor',note:'November – Januari'},
+        {id:uid('x'),g:'Mentor',row:'Advisory Session',start:'2027-01-12',end:'2027-01-16',kind:'bar',style:'red',note:'12–16 Jan'},
+        {id:uid('x'),g:'Mentor',row:'Mentor Checklist',start:'2026-10-31',end:'2026-10-31',kind:'milestone',style:'red',note:'M1'},
+        {id:uid('x'),g:'Mentor',row:'Mentor Checklist',start:'2026-11-30',end:'2026-11-30',kind:'milestone',style:'red',note:'M2'},
+        {id:uid('x'),g:'Mentor',row:'Mentor Checklist',start:'2026-12-31',end:'2026-12-31',kind:'milestone',style:'red',note:'M3'},
+        {id:uid('x'),g:'Mentor',row:'Mentor Checklist',start:'2027-01-31',end:'2027-01-31',kind:'milestone',style:'red',note:'M4'},
+        {id:uid('x'),g:'Assessment',row:'Deadline Tugas',start:'2026-10-30',end:'2026-10-30',kind:'milestone',style:'red',note:'T1–2'},
+        {id:uid('x'),g:'Assessment',row:'Deadline Tugas',start:'2026-11-06',end:'2026-11-06',kind:'milestone',style:'red',note:'T3–5'},
+        {id:uid('x'),g:'Assessment',row:'Deadline Tugas',start:'2026-11-13',end:'2026-11-13',kind:'milestone',style:'red',note:'T6–8'},
+        {id:uid('x'),g:'Assessment',row:'Checkpoint',start:'2026-11-25',end:'2026-11-26',kind:'bar',style:'red',note:'CP1 · 25–26 Nov'},
+        {id:uid('x'),g:'Assessment',row:'Checkpoint',start:'2026-12-15',end:'2026-12-16',kind:'bar',style:'red',note:'CP2 · 15–16 Des'},
+        {id:uid('x'),g:'Assessment',row:'Final Panel',start:'2027-01-27',end:'2027-01-28',kind:'bar',style:'red',note:'27–28 Jan 2027'}
+      ]
+    }
+  };
+}
+
+/* ---------- state ---------- */
+let S=load();
+function load(){
+  try{ const raw=localStorage.getItem(KEY); if(raw){ const o=JSON.parse(raw); if(o&&o.version===6) return o; } }catch(e){}
+  const s=seed(); try{ localStorage.setItem(KEY,JSON.stringify(s)); }catch(e){} return s;
+}
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ toast('Penyimpanan browser penuh. Ekspor data Anda.'); } }
+function toast(msg){
+  const old=document.querySelector('.toast'); if(old) old.remove();
+  const d=document.createElement('div'); d.className='toast'; d.textContent=msg; document.body.appendChild(d);
+  setTimeout(()=>d.remove(),2600);
+}
+
+/* ---------- lookups ---------- */
+const me=()=>S.users.find(u=>u.id===S.session)||null;
+const role=()=>{const u=me(); return u?u.role:null;};
+const myMentorId=()=>{const u=me(); return u&&u.role==='mentor'?u.refId:null;};
+const myPid=()=>{const u=me(); return u&&u.role==='peserta'?u.refId:null;};
+const P=id=>S.participants.find(x=>x.id===id);
+const M=id=>S.mentors.find(x=>x.id===id);
+const T=id=>S.tasks.find(x=>x.id===id);
+const MOD=id=>S.modules.find(x=>x.id===id);
+const CP=m=>S.checkpoints.find(c=>c.m===m);
+function canValidate(pid){ const r=role(); if(r==='admin') return true; if(r==='mentor'){ const p=P(pid); return !!p&&p.mentorId===myMentorId(); } return false; }
+function canSubmit(pid){ const r=role(); return r==='admin'||(r==='peserta'&&myPid()===pid); }
+const sortCode=(a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true});
+function modulesSorted(){ return S.modules.slice().sort((a,b)=>(a.order||0)-(b.order||0)||a.name.localeCompare(b.name)); }
+function modTasks(mid){ return S.tasks.filter(t=>t.scope==='mod'&&t.moduleId===mid).sort(sortCode); }
+function allModTasks(){ return S.tasks.filter(t=>t.scope==='mod'); }
+function tasksOf(m){ return S.tasks.filter(t=>t.scope==='cp'&&t.cp===m).sort(sortCode); }
+const subKey=(t,p)=>t+'|'+p;
+const sub=(t,p)=>S.submissions[subKey(t,p)]||null;
+function lastVer(t,p){ const s=sub(t,p); return s&&s.versions.length?s.versions[s.versions.length-1]:null; }
+function subStatus(t,p){
+  const s=sub(t,p); if(!s) return 'belum';
+  const task=T(t);
+  if(task&&task.scope==='mod'){
+    if(!s.submitCount) return 'belum';
+    return (s.validation&&s.validation.overall)?'selesai':'menunggu';
+  }
+  if(!s.versions||!s.versions.length) return 'belum';
+  if(!s.validation) return 'menunggu';
+  return 'selesai';
+}
+const asKey=(p,m)=>p+'|'+m;
+const assess=(p,m)=>S.assessments[asKey(p,m)]||null;
+const STATUS={belum:'<span class="pill flat">Belum submit</span>',menunggu:'<span class="pill wait">Menunggu validasi</span>',selesai:'<span class="pill done">Selesai</span>'};
+
+/* ---------- scoring ---------- */
+/* Batas perhitungan: tugas modul memakai tenggatnya sendiri,
+   poin checkpoint memakai tanggal akhir checkpoint. */
+function deadlineOf(t){ return t.scope==='mod'?(t.due||''):(((CP(t.cp)||{}).end)||''); }
+function deadlineLabel(t){ return t.scope==='mod'?('tenggat '+fdate(t.due)):('akhir checkpoint '+fdate((CP(t.cp)||{}).end)); }
+function pastDue(t){ const d=deadlineOf(t); return !!d && today()>d; }
+/* nilai tugas: sudah divalidasi -> nilai mentor;
+   belum divalidasi tapi batas sudah lewat -> 1;
+   belum divalidasi dan batas belum lewat -> belum ikut dihitung (null). */
+function taskScore(tid,pid){
+  const t=T(tid), s=sub(tid,pid);
+  if(t&&t.scope==='mod'){
+    if(s&&s.validation&&s.validation.overall) return s.validation.overall;
+  }else if(s&&s.validation){ return s.validation.score; }
+  if(t&&pastDue(t)) return 1;
+  return null;
+}
+function scoreList(ts,pid){ return ts.map(t=>taskScore(t.id,pid)).filter(v=>v!=null); }
+function counted(ts,pid){ return scoreList(ts,pid).length; }
+function modScore(pid){ const v=scoreList(allModTasks(),pid); return v.length?avg(v):null; }
+function cpScore(pid,m){ const v=scoreList(tasksOf(m),pid); return v.length?avg(v):null; }
+function components(pid){
+  return [{key:'mod',label:'Tugas Modul',score:modScore(pid)}].concat(
+    MONTHS.map(m=>({key:'cp'+m,label:'Checkpoint '+m,score:cpScore(pid,m)})));
+}
+function totalScore(pid){ return avg(components(pid).map(c=>c.score).filter(v=>v!=null)); }
+function readiness(sc){
+  if(sc==null) return {key:'none',label:'Belum dinilai',cls:'flat'};
+  if(sc<S.settings.thBelum) return {key:'belum',label:'Belum Siap',cls:'belum'};
+  if(sc<S.settings.thSiap) return {key:'damping',label:'Perlu Pendampingan',cls:'damping'};
+  return {key:'siap',label:'Siap',cls:'siap'};
+}
+function isLateCP(m,iso){
+  const c=CP(m); if(!c||!iso) return false;
+  const d=iso.slice(0,10);
+  return d>c.end || d<c.start;
+}
+function isLateDue(due,iso){ return !!(due&&iso&&iso.slice(0,10)>due); }
+
+/* ---------- navigation ---------- */
+const NAV={
+  admin:[
+    ['Program',[['#/ringkasan','Ringkasan'],['#/timeline','Timeline']]],
+    ['Data',[['#/peserta','Peserta'],['#/mentor','Mentor']]],
+    ['Materi',[['#/modul','Modul & Tugas'],['#/tugas','Poin Tugas Checkpoint']]],
+    ['Penilaian',[['#/checkpoint','Checkpoint & Ambang']]],
+    ['Sistem',[['#/pengaturan','Pengaturan Data']]]
+  ],
+  mentor:[
+    ['Program',[['#/ringkasan','Ringkasan'],['#/timeline','Timeline']]],
+    ['Mentoring',[['#/peserta','Peserta']]]
+  ],
+  peserta:[
+    ['Program',[['#/ringkasan','Ringkasan'],['#/timeline','Timeline']]],
+    ['Milik Saya',[['#/cp-saya','Tugas & Checkpoint']]]
+  ]
+};
+window.addEventListener('hashchange',render);
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render(){
+  const app=$('#app');
+  if(!S.session){ app.innerHTML=viewLogin(); bind(); return; }
+  const parts=(location.hash||'#/ringkasan').replace(/^#\//,'').split('/');
+  let body='';
+  try{ body=route(parts,role()); }
+  catch(e){ body='<div class="card"><div class="bd"><h3>Terjadi kesalahan</h3><p class="muted">'+esc(e.message)+'</p></div></div>'; }
+  app.innerHTML='<div class="shell">'+sidebar(parts[0])+'<div class="main">'+
+    '<div class="topbar"><button data-act="menu">☰</button><strong style="font-family:Questrial,sans-serif">LEAP Batch 5</strong>'+
+    '<span class="small" style="margin-left:auto; opacity:.8">'+fdate(today())+'</span></div>'+
+    '<div class="wrap">'+body+'</div></div></div>';
+  bind();
+}
+function sidebar(active){
+  const u=me(); const groups=NAV[u.role]||[];
+  const roleLabel={admin:'Admin Program',mentor:'Mentor / Region Manager',peserta:'Peserta'}[u.role];
+  let nav='';
+  groups.forEach(g=>{
+    nav+='<div class="grp">'+esc(g[0])+'</div>';
+    g[1].forEach(it=>{
+      const on=it[0].replace('#/','')===active?'on':'';
+      nav+='<a class="'+on+'" href="'+it[0]+'">'+esc(it[1])+'</a>';
+    });
+  });
+  return '<aside class="side" id="side">'+
+    '<div class="brand"><div class="mark">LEAP <em>Batch 5</em></div><div class="sub">Readiness Tracker · ASM ke Store Manager</div>'+
+    '<div class="todaychip">Hari ini · '+fdate(today())+'</div></div>'+
+    '<nav class="nav">'+nav+'</nav>'+
+    '<div class="whoami"><div class="nm">'+esc(u.name)+'</div><div class="rl">'+esc(roleLabel)+'</div>'+
+    '<button data-act="logout">Keluar</button></div></aside>';
+}
+function route(parts,r){
+  const v=parts[0]||'ringkasan';
+  switch(v){
+    case 'ringkasan': return r==='peserta'?viewPesertaHome():viewSummary();
+    case 'timeline': return viewTimeline();
+    case 'peserta':
+      if(parts[1]) return viewParticipant(parts[1],parts[2]||'mod','#/peserta/'+parts[1]);
+      return guard(r!=='peserta')||viewParticipantList();
+    case 'cp-saya': {
+      const pid=myPid(); if(!pid) return guard(false);
+      return viewParticipant(pid,parts[1]||'mod','#/cp-saya');
+    }
+    case 'mentor': return guard(r==='admin')||viewMentorList();
+    case 'modul': return guard(r==='admin')||viewModules();
+    case 'tugas': return guard(r==='admin')||viewTasks();
+    case 'checkpoint': return guard(r==='admin')||viewCheckpoints();
+    case 'pengaturan': return guard(r==='admin')||viewSettings();
+    default: return '<div class="card"><div class="empty"><strong>Halaman tidak ditemukan</strong>Pilih menu di samping.</div></div>';
+  }
+}
+function guard(ok){ return ok?null:'<div class="card"><div class="empty"><strong>Tidak ada akses</strong>Halaman ini bukan untuk peran Anda.</div></div>'; }
+
+/* ---------- login ---------- */
+function viewLogin(err){
+  return '<div class="login"><div class="box">'+
+    '<div class="brandbig">LEAP <em>Batch 5</em></div>'+
+    '<p class="muted" style="margin:0 0 20px">Pencatatan kesiapan bulanan peserta, dari Assistant Store Manager ke Store Manager.</p>'+
+    '<div class="card"><div class="bd">'+
+    (err?'<div class="err">'+esc(err)+'</div>':'')+
+    '<label class="f"><span>Nama pengguna</span><input type="text" id="lu" autocomplete="username" autocapitalize="none"></label>'+
+    '<label class="f"><span>Kata sandi</span><input type="password" id="lp" autocomplete="current-password"></label>'+
+    '<button class="btn" data-act="login" style="width:100%; justify-content:center">Masuk</button>'+
+    '<div class="demo">Masuk sebagai admin: <code>admin / admin123</code>. Akun mentor dan peserta dibuat dari halaman admin.</div>'+
+    '</div></div></div></div>';
+}
+
+/* ---------- ringkasan admin & mentor ---------- */
+function viewSummary(){
+  const list=S.participants.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const scored=list.map(p=>({p,sc:totalScore(p.id)}));
+  const counts={siap:0,damping:0,belum:0,none:0};
+  scored.forEach(x=>counts[readiness(x.sc).key]++);
+  const allAvg=avg(scored.map(x=>x.sc).filter(v=>v!=null));
+  const cards='<div class="grid g4" style="margin-bottom:18px">'+
+    statCard('Peserta',list.length,'orang dalam batch ini')+
+    statCard('Siap',counts.siap,'skor ≥ '+S.settings.thSiap)+
+    statCard('Perlu pendampingan',counts.damping,S.settings.thBelum+' – '+S.settings.thSiap)+
+    statCard('Belum siap',counts.belum,'skor < '+S.settings.thBelum)+'</div>';
+  const rows=scored.map(function(x){
+    const p=x.p, sc=x.sc, rd=readiness(sc), mn=M(p.mentorId);
+    const cells=components(p.id).map(function(c){
+      const ts=c.key==='mod'?allModTasks():tasksOf(Number(c.key.replace('cp','')));
+      const done=ts.filter(t=>subStatus(t.id,p.id)==='selesai').length;
+      return '<td class="mono-num">'+(c.score==null?'<span class="muted">—</span>':n1(c.score))+
+        '<div class="small muted">'+done+'/'+ts.length+' selesai</div>'+
+        '<div class="small muted">'+counted(ts,p.id)+' dihitung</div></td>';
+    }).join('');
+    return '<tr><td><a href="#/peserta/'+p.id+'/ringkas"><strong>'+esc(p.name)+'</strong></a>'+
+      '<div class="small muted">'+esc(p.store)+'</div></td>'+
+      '<td class="small">'+esc(mn?mn.name:'—')+'</td>'+cells+
+      '<td class="mono-num"><strong>'+n1(sc)+'</strong></td>'+
+      '<td><span class="pill '+rd.cls+'">'+rd.label+'</span></td></tr>';
+  }).join('');
+  return '<div class="pagehead"><h1>Ringkasan kesiapan</h1>'+
+    '<p>Rata-rata kesiapan batch saat ini '+(allAvg==null?'belum terbentuk karena belum ada peserta':'<strong>'+n1(allAvg)+'</strong> dari skala 3')+
+    '. Nilai kesiapan adalah rata-rata lima komponen dengan bobot sama: Tugas Modul dan empat checkpoint. '+
+    'Tugas yang batasnya sudah lewat namun belum divalidasi dihitung bernilai 1; yang batasnya belum lewat belum ikut dihitung. '+
+    'Acuan tanggal hari ini: <strong>'+fdate(today())+'</strong>.</p></div>'+cards+
+    '<div class="card"><div class="hd"><h3>Peserta dan nilai per komponen</h3>'+
+    '<span class="small muted">Baris kecil: tugas selesai divalidasi, dan tugas yang sudah masuk perhitungan</span></div>'+
+    '<div class="bd tight"><div class="tscroll"><table>'+
+    '<thead><tr><th>Peserta</th><th>Mentor</th><th>Tugas Modul</th><th>CP1</th><th>CP2</th><th>CP3</th><th>CP4</th><th>Total</th><th>Status</th></tr></thead>'+
+    '<tbody>'+(rows||'<tr><td colspan="9"><div class="empty"><strong>Belum ada peserta</strong>Tambahkan mentor dan peserta dari menu Data untuk mulai mencatat kesiapan.</div></td></tr>')+
+    '</tbody></table></div></div></div>';
+}
+function statCard(label,val,sub){
+  return '<div class="card"><div class="bd"><div class="small muted">'+esc(label)+'</div>'+
+    '<div class="score">'+esc(String(val))+'</div><div class="small muted">'+esc(sub)+'</div></div></div>';
+}
+
+/* ---------- daftar peserta ---------- */
+function viewParticipantList(){
+  const r=role(), mine=myMentorId();
+  const noMentor=S.mentors.length===0;
+  const list=S.participants.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const rows=list.map(function(p){
+    const sc=totalScore(p.id), rd=readiness(sc), mn=M(p.mentorId);
+    const own=r==='admin'||p.mentorId===mine;
+    return '<tr><td><a href="#/peserta/'+p.id+'/mod"><strong>'+esc(p.name)+'</strong></a>'+
+      '<div class="small muted">'+esc(p.store)+'</div></td>'+
+      '<td class="small">'+esc(mn?mn.name:'—')+'</td>'+
+      '<td class="mono-num"><strong>'+n1(sc)+'</strong></td>'+
+      '<td><span class="pill '+rd.cls+'">'+rd.label+'</span></td>'+
+      '<td>'+(own?'<span class="pill done">Dapat dinilai</span>':'<span class="pill flat">Hanya lihat</span>')+'</td>'+
+      (r==='admin'?'<td class="row"><button class="btn ghost sm" data-act="ped" data-id="'+p.id+'">Ubah</button>'+
+        '<button class="btn ghost sm" data-act="pdel" data-id="'+p.id+'">Hapus</button></td>':'')+'</tr>';
+  }).join('');
+  const addBtn=r==='admin'?(noMentor
+    ?'<a class="btn ghost" href="#/mentor">Tambah mentor dulu</a>'
+    :'<button class="btn" data-act="pnew">Tambah peserta</button>'):'';
+  const emptyMsg=r==='admin'
+    ?(noMentor?'Tambahkan mentor lebih dulu, lalu peserta dapat ditugaskan kepada mentornya.':'Gunakan tombol Tambah peserta untuk mengisi daftar.')
+    :'Admin program belum memasukkan daftar peserta.';
+  return '<div class="pagehead spread"><div><h1>Peserta</h1>'+
+    '<p>'+(r==='mentor'?'Anda dapat melihat seluruh peserta, namun hanya dapat menilai mentee Anda sendiri.':'Kelola daftar peserta dan penugasan mentornya.')+'</p></div>'+addBtn+'</div>'+
+    '<div class="card"><div class="bd tight"><div class="tscroll"><table>'+
+    '<thead><tr><th>Peserta</th><th>Mentor</th><th>Total</th><th>Status</th><th>Akses</th>'+(r==='admin'?'<th></th>':'')+'</tr></thead>'+
+    '<tbody>'+(rows||'<tr><td colspan="6"><div class="empty"><strong>Belum ada peserta</strong>'+emptyMsg+'</div></td></tr>')+
+    '</tbody></table></div></div></div>'+
+    (r==='admin'&&!noMentor?formParticipant():'');
+}
+function formParticipant(){
+  const opts=S.mentors.map(m=>'<option value="'+m.id+'">'+esc(m.name)+' — '+esc(m.region)+'</option>').join('');
+  return '<div class="card" id="pform" style="display:none; margin-top:16px"><div class="hd"><h3 id="pformtitle">Tambah peserta</h3></div>'+
+  '<div class="bd"><input type="hidden" id="pf_id">'+
+    '<div class="grid g2">'+
+      '<label class="f"><span>Nama lengkap</span><input type="text" id="pf_name"></label>'+
+      '<label class="f"><span>Toko</span><input type="text" id="pf_store"></label>'+
+      '<label class="f"><span>Mentor</span><select id="pf_mentor">'+opts+'</select></label>'+
+      '<label class="f"><span>Nama pengguna untuk masuk</span><input type="text" id="pf_user" autocapitalize="none"></label>'+
+      '<label class="f"><span>Kata sandi</span><input type="text" id="pf_pass" value="peserta123"></label>'+
+    '</div>'+
+    '<div class="row"><button class="btn" data-act="psave">Simpan peserta</button>'+
+      '<button class="btn ghost" data-act="pcancel">Batal</button></div></div></div>';
+}
+
+/* ---------- daftar mentor ---------- */
+function viewMentorList(){
+  const rows=S.mentors.map(function(m){
+    const ment=S.participants.filter(p=>p.mentorId===m.id);
+    const sc=avg(ment.map(p=>totalScore(p.id)).filter(v=>v!=null));
+    return '<tr><td><strong>'+esc(m.name)+'</strong><div class="small muted">'+esc(m.region)+'</div></td>'+
+      '<td class="small">'+esc(m.email||'—')+'</td>'+
+      '<td>'+ment.length+' peserta'+(ment.length?'<div class="small muted">'+ment.map(p=>esc(p.name)).join(', ')+'</div>':'')+'</td>'+
+      '<td class="mono-num">'+n1(sc)+'</td>'+
+      '<td class="row"><button class="btn ghost sm" data-act="med" data-id="'+m.id+'">Ubah</button>'+
+      '<button class="btn ghost sm" data-act="mdel" data-id="'+m.id+'">Hapus</button></td></tr>';
+  }).join('');
+  return '<div class="pagehead spread"><div><h1>Mentor</h1><p>Satu mentor dapat memegang lebih dari satu peserta.</p></div>'+
+    '<button class="btn" data-act="mnew">Tambah mentor</button></div>'+
+    '<div class="card"><div class="bd tight"><div class="tscroll"><table>'+
+    '<thead><tr><th>Mentor</th><th>Email</th><th>Mentee</th><th>Rata-rata mentee</th><th></th></tr></thead>'+
+    '<tbody>'+(rows||'<tr><td colspan="5"><div class="empty"><strong>Belum ada mentor</strong>Tambahkan Region Manager yang akan memegang peserta.</div></td></tr>')+
+    '</tbody></table></div></div></div>'+
+    '<div class="card" id="mform" style="display:none; margin-top:16px"><div class="hd"><h3 id="mformtitle">Tambah mentor</h3></div>'+
+    '<div class="bd"><input type="hidden" id="mf_id">'+
+      '<div class="grid g2">'+
+        '<label class="f"><span>Nama lengkap</span><input type="text" id="mf_name"></label>'+
+        '<label class="f"><span>Region</span><input type="text" id="mf_region"></label>'+
+        '<label class="f"><span>Email</span><input type="text" id="mf_email"></label>'+
+        '<label class="f"><span>Nama pengguna untuk masuk</span><input type="text" id="mf_user" autocapitalize="none"></label>'+
+        '<label class="f"><span>Kata sandi</span><input type="text" id="mf_pass" value="mentor123"></label>'+
+      '</div>'+
+      '<div class="row"><button class="btn" data-act="msave">Simpan mentor</button>'+
+      '<button class="btn ghost" data-act="mcancel">Batal</button></div></div></div>';
+}
+
+/* ---------- modul & tugas modul (admin) ---------- */
+function viewModules(){
+  const mods=modulesSorted();
+  const rows=mods.map(function(md){
+    const t=modTasks(md.id)[0];
+    return '<tr><td><strong>'+md.order+'. '+esc(md.name)+'</strong>'+
+      '<div class="small muted">'+esc(TRACKS[md.track]||'')+(md.facilitator?' · '+esc(md.facilitator):'')+'</div>'+
+      (md.competency?'<div class="small muted">'+esc(md.competency)+'</div>':'')+'</td>'+
+      '<td class="small">'+esc(md.session||'—')+'</td>'+
+      '<td class="small">'+(t?fdate(t.due):'—')+'</td>'+
+      '<td class="small">'+(t?((t.obj||[]).length+' tujuan · '+(t.act||[]).length+' poin action<br>'+(t.ev||[]).length+' evidence · '+(t.chk||[]).length+' cek mentor'):'tugas belum dibuat')+'</td>'+
+      '<td class="row"><button class="btn ghost sm" data-act="mdedit" data-id="'+md.id+'">Ubah</button>'+
+      '<button class="btn ghost sm" data-act="mddel" data-id="'+md.id+'">Hapus</button></td></tr>';
+  }).join('');
+  const trackopt=Object.keys(TRACKS).map(k=>'<option value="'+k+'">'+esc(TRACKS[k])+'</option>').join('');
+  return '<div class="pagehead spread"><div><h1>Modul &amp; tugas</h1>'+
+    '<p>Satu modul berisi satu lembar tugas dengan susunan Bagian A Action, Bagian B Evidence, dan Bagian C Validasi Mentor, mengikuti template Excel Bulan 1. Rubrik 1–3 dipakai mentor saat memberi rating keseluruhan.</p></div>'+
+    '<button class="btn" data-act="mdnew">Tambah modul</button></div>'+
+    '<div class="card" style="margin-bottom:16px"><div class="bd tight"><div class="tscroll"><table>'+
+    '<thead><tr><th>Modul</th><th>Tanggal sesi</th><th>Tenggat tugas</th><th>Isi lembar tugas</th><th></th></tr></thead>'+
+    '<tbody>'+(rows||'<tr><td colspan="5"><div class="empty"><strong>Belum ada modul</strong>Tambahkan modul pertama beserta lembar tugasnya.</div></td></tr>')+
+    '</tbody></table></div></div></div>'+
+    '<div class="card" id="mdform" style="display:none"><div class="hd"><h3 id="mdformtitle">Tambah modul</h3></div>'+
+    '<div class="bd"><input type="hidden" id="md_id">'+
+      '<div class="grid g2">'+
+        '<label class="f"><span>Nama modul</span><input type="text" id="md_name"></label>'+
+        '<label class="f"><span>Jalur belajar</span><select id="md_track">'+trackopt+'</select></label>'+
+        '<label class="f"><span>Fasilitator</span><input type="text" id="md_fac"></label>'+
+        '<label class="f"><span>Tanggal sesi</span><input type="text" id="md_ses" placeholder="15–16 Okt 2026"></label>'+
+        '<label class="f"><span>Kompetensi utama</span><input type="text" id="md_comp" placeholder="K2 Strategic &amp; Critical Thinking"></label>'+
+        '<label class="f"><span>Urutan tampil</span><input type="number" id="md_order" value="1"></label>'+
+        '<label class="f"><span>Kode tugas</span><input type="text" id="mt_code" placeholder="TUGAS 9"></label>'+
+        '<label class="f"><span>Tenggat pengumpulan</span><input type="date" id="mt_due"></label>'+
+      '</div>'+
+      '<label class="f"><span>Judul lembar tugas</span><input type="text" id="mt_title"></label>'+
+      '<label class="f"><span>Tujuan tugas — satu per baris</span><textarea id="mt_obj" style="min-height:90px"></textarea></label>'+
+      '<label class="f"><span>Bagian A, poin action — satu per baris, format <code>Poin | Panduan pengisian</code></span>'+
+        '<textarea id="mt_act" style="min-height:150px"></textarea></label>'+
+      '<label class="f"><span>Bagian B, bukti yang wajib dilampirkan — satu per baris</span><textarea id="mt_ev" style="min-height:110px"></textarea></label>'+
+      '<label class="f"><span>Bagian C, yang dicek mentor — satu per baris</span><textarea id="mt_chk" style="min-height:110px"></textarea></label>'+
+      '<h3 style="margin-top:14px">Rubrik rating keseluruhan</h3>'+
+      '<label class="f"><span>Nilai 1 — Belum Mampu</span><textarea id="mt_r1"></textarea></label>'+
+      '<label class="f"><span>Nilai 2 — Mampu Sesuai Standar</span><textarea id="mt_r2"></textarea></label>'+
+      '<label class="f"><span>Nilai 3 — Mampu Melebihi Standar</span><textarea id="mt_r3"></textarea></label>'+
+      '<div class="row"><button class="btn" data-act="mdsave">Simpan modul &amp; tugas</button>'+
+      '<button class="btn ghost" data-act="mdcancel">Batal</button></div></div></div>';
+}
+
+/* ---------- poin tugas checkpoint (admin) ---------- */
+function viewTasks(){
+  const blocks=MONTHS.map(function(m){
+    const ts=tasksOf(m);
+    const rows=ts.map(function(t){
+      const done=S.participants.filter(p=>subStatus(t.id,p.id)==='selesai').length;
+      const waiting=S.participants.filter(p=>subStatus(t.id,p.id)==='menunggu').length;
+      return '<tr><td><strong>'+esc(t.code)+' · '+esc(t.title)+'</strong><div class="small muted">'+esc(t.desc||'')+'</div></td>'+
+        '<td class="small">'+fdate(t.due)+'</td>'+
+        '<td class="small">'+({file:'Berkas',link:'Tautan',both:'Berkas atau tautan'})[t.accept]+'</td>'+
+        '<td class="small">'+done+' selesai · '+waiting+' menunggu</td>'+
+        '<td class="row"><button class="btn ghost sm" data-act="ted" data-id="'+t.id+'">Ubah</button>'+
+        '<button class="btn ghost sm" data-act="tdel" data-id="'+t.id+'">Hapus</button></td></tr>';
+    }).join('');
+    return '<div class="card" style="margin-bottom:16px"><div class="hd"><h3>'+esc(CP(m).name)+'</h3>'+
+      '<button class="btn ghost sm" data-act="tnew" data-m="'+m+'">Tambah poin di checkpoint '+m+'</button></div>'+
+      '<div class="bd tight"><div class="tscroll"><table>'+
+      '<thead><tr><th>Poin tugas</th><th>Tenggat</th><th>Bentuk evidence</th><th>Progres</th><th></th></tr></thead>'+
+      '<tbody>'+(rows||'<tr><td colspan="5"><div class="empty"><strong>Belum ada poin tugas</strong>Checkpoint ini belum punya poin yang dinilai.</div></td></tr>')+
+      '</tbody></table></div></div></div>';
+  }).join('');
+  const cpopt=MONTHS.map(m=>'<option value="'+m+'">'+esc(CP(m).name)+'</option>').join('');
+  return '<div class="pagehead"><h1>Poin tugas checkpoint</h1>'+
+    '<p>Poin tugas inilah yang dikerjakan peserta dan dinilai mentor di dalam tiap checkpoint. Nilai checkpoint adalah rata-rata nilai seluruh poin di checkpoint tersebut.</p></div>'+
+    blocks+
+    '<div class="card" id="tform" style="display:none"><div class="hd"><h3 id="tformtitle">Tambah poin tugas</h3></div>'+
+    '<div class="bd"><input type="hidden" id="tf_id">'+
+      '<div class="grid g2">'+
+        '<label class="f"><span>Kode</span><input type="text" id="tf_code" placeholder="T5"></label>'+
+        '<label class="f"><span>Nama poin tugas</span><input type="text" id="tf_title"></label>'+
+        '<label class="f"><span>Checkpoint</span><select id="tf_cp">'+cpopt+'</select></label>'+
+        '<label class="f"><span>Tenggat kiriman</span><input type="date" id="tf_due"></label>'+
+        '<label class="f"><span>Bentuk evidence</span><select id="tf_accept">'+
+          '<option value="both">Berkas atau tautan</option><option value="file">Berkas saja</option><option value="link">Tautan saja</option></select></label>'+
+      '</div>'+
+      '<label class="f"><span>Penjelasan untuk peserta</span><textarea id="tf_desc"></textarea></label>'+
+      '<div class="row"><button class="btn" data-act="tsave">Simpan poin tugas</button>'+
+      '<button class="btn ghost" data-act="tcancel">Batal</button></div></div></div>';
+}
+
+/* ---------- checkpoint & ambang (admin) ---------- */
+function viewCheckpoints(){
+  const cps=S.checkpoints.map(c=>'<div class="card"><div class="bd">'+
+    '<div class="small muted">Checkpoint '+c.m+' · '+tasksOf(c.m).length+' poin tugas</div>'+
+    '<label class="f"><span>Nama</span><input type="text" data-cp="'+c.m+'" data-fld="name" value="'+esc(c.name)+'"></label>'+
+    '<div class="grid g2">'+
+      '<label class="f"><span>Mulai</span><input type="date" data-cp="'+c.m+'" data-fld="start" value="'+esc(c.start)+'"></label>'+
+      '<label class="f"><span>Selesai</span><input type="date" data-cp="'+c.m+'" data-fld="end" value="'+esc(c.end)+'"></label>'+
+    '</div>'+
+    '<div class="small muted">'+(c.m===2?'Peserta menuliskan 3 pilar prioritasnya di checkpoint ini.':c.m===3?'Peserta menuliskan 4 pilar sisanya di checkpoint ini.':'Tidak ada isian pilar di checkpoint ini.')+'</div>'+
+  '</div></div>').join('');
+  return '<div class="pagehead"><h1>Checkpoint &amp; ambang kesiapan</h1>'+
+    '<p>Rentang tanggal menentukan apakah validasi mentor tercatat tepat waktu atau terlambat. Validasi di luar rentang tetap diterima, hanya diberi penanda.</p></div>'+
+    '<div class="grid g2" style="margin-bottom:16px">'+cps+'</div>'+
+    '<div class="row" style="margin-bottom:24px"><button class="btn" data-act="cpsave">Simpan perubahan checkpoint</button></div>'+
+    '<div class="card"><div class="hd"><h3>Ambang kesiapan</h3></div><div class="bd">'+
+      '<div class="grid g2">'+
+        '<label class="f"><span>Batas bawah "Perlu Pendampingan"</span><input type="number" step="0.1" min="1" max="3" id="set_tb" value="'+S.settings.thBelum+'"></label>'+
+        '<label class="f"><span>Batas bawah "Siap"</span><input type="number" step="0.1" min="1" max="3" id="set_ts" value="'+S.settings.thSiap+'"></label>'+
+      '</div>'+
+      '<p class="small muted">Nilai kesiapan adalah rata-rata lima komponen berbobot sama: Tugas Modul dan Checkpoint 1 sampai 4. '+
+      'Batas perhitungan tiap poin checkpoint adalah tanggal akhir checkpoint di atas, sedangkan tugas modul memakai tenggatnya masing-masing. '+
+      'Setelah batas itu lewat, tugas yang belum divalidasi dihitung bernilai 1.</p>'+
+      '<button class="btn" data-act="setsave">Simpan ambang</button></div></div>';
+}
+
+/* ---------- pengaturan data ---------- */
+function viewSettings(){
+  return '<div class="pagehead"><h1>Pengaturan data</h1>'+
+    '<p>Prototype ini menyimpan data di browser Anda sendiri. Ekspor berkala jika Anda ingin memindahkan isian ke perangkat lain.</p></div>'+
+    '<div class="card"><div class="bd stack">'+
+      '<div><h3>Cadangkan dan pulihkan</h3>'+
+        '<p class="small muted">Ekspor menghasilkan satu berkas JSON berisi seluruh peserta, mentor, modul, tugas, kiriman, dan penilaian.</p>'+
+        '<div class="row"><button class="btn" data-act="export">Ekspor data</button>'+
+        '<button class="btn ghost" data-act="importpick">Impor data</button>'+
+        '<input type="file" id="impfile" accept="application/json" style="display:none"></div></div>'+
+      '<div style="border-top:1px solid var(--line); padding-top:16px">'+
+        '<h3>Mulai ulang</h3>'+
+        '<p class="small muted">Mengembalikan seluruh isi ke kondisi awal. Peserta, mentor, kiriman, dan penilaian akan hilang.</p>'+
+        '<button class="btn danger" data-act="reset">Hapus semua dan mulai ulang</button></div>'+
+    '</div></div>';
+}
+
+/* ---------- halaman peserta ---------- */
+function viewParticipant(pid,tab,base){
+  const p=P(pid); if(!p) return guard(false);
+  const r=role();
+  if(r==='peserta'&&myPid()!==pid) return guard(false);
+  const mn=M(p.mentorId), sc=totalScore(pid), rd=readiness(sc);
+  const tabs=[['mod','Tugas Modul'],['cp1','Checkpoint 1'],['cp2','Checkpoint 2'],['cp3','Checkpoint 3'],['cp4','Checkpoint 4'],['ringkas','Ringkasan']]
+    .map(t=>'<a class="'+(tab===t[0]?'on':'')+'" href="'+base+'/'+t[0]+'">'+t[1]+'</a>').join('');
+  let body;
+  if(tab==='ringkas') body=tabSummary(p,base);
+  else if(tab==='mod') body=tabModules(p,base);
+  else body=tabCheckpoint(p,Number(tab.replace('cp',''))||1,base);
+  const back=r==='peserta'?'':'<a class="small" href="#/peserta">← Semua peserta</a>';
+  const note=(r==='mentor'&&!canValidate(pid))?'<p class="small muted">Anda bukan mentor peserta ini, jadi halaman ini hanya dapat dilihat.</p>':'';
+  return '<div class="pagehead">'+back+
+    '<div class="spread" style="margin-top:6px">'+
+      '<div><h1>'+esc(p.name)+'</h1><p>'+esc(p.store)+' · Mentor '+esc(mn?mn.name:'belum ditetapkan')+'</p></div>'+
+      '<div style="text-align:right"><div class="score">'+n1(sc)+'</div><span class="pill '+rd.cls+'">'+rd.label+'</span></div>'+
+    '</div>'+note+'</div>'+
+    '<div class="tabs">'+tabs+'</div>'+body;
+}
+
+/* kartu satu tugas, dipakai di tab modul maupun checkpoint */
+function taskCard(p,t,vEd,sEd,showRubric){
+  const st=subStatus(t.id,p.id), last=lastVer(t.id,p.id), sb=sub(t.id,p.id);
+  const val=sb&&sb.validation;
+  const allowFile=t.accept!=='link', allowLink=t.accept!=='file';
+  const history=sb&&sb.versions.length?sb.versions.map(v=>
+    '<div class="small muted">Submission ke-'+v.n+' · '+fstamp(v.at)+' · '+
+    (v.kind==='file'?esc(v.fileName)+' '+kb(v.size):(v.link?'<a href="'+esc(v.link)+'" target="_blank" rel="noopener">'+esc(v.link)+'</a>':'uraian teks'))+'</div>').join(''):'';
+
+  let workBlock;
+  if(sEd){
+    workBlock='<label class="f"><span>Uraian pengerjaan</span><textarea data-work="'+t.id+'" placeholder="Apa yang Anda kerjakan dan hasilnya">'+esc(last?last.work||'':'')+'</textarea></label>'+
+      '<div class="grid g2">'+
+      (allowFile?'<label class="f"><span>Unggah evidence</span><input type="file" data-up="'+t.id+'"></label>':'')+
+      (allowLink?'<label class="f"><span>Atau tautan evidence</span><input type="text" data-lk="'+t.id+'" placeholder="https://..."></label>':'')+
+      '</div>'+history+
+      '<button class="btn" data-act="submit" data-t="'+t.id+'" data-p="'+p.id+'" style="margin-top:8px">'+(last?'Kirim ulang':'Kirim pengerjaan')+'</button>'+
+      (last?'<div class="small muted" style="margin-top:6px">Kiriman ulang akan menunggu validasi mentor lagi.</div>':'');
+  }else{
+    workBlock=last
+      ?'<p class="small" style="margin-top:0">'+(last.work?esc(last.work):'<span class="muted">Peserta tidak menulis uraian.</span>')+'</p>'+history
+      :'<p class="small muted" style="margin-top:0">Peserta belum mengirim apa pun untuk tugas ini.</p>';
+  }
+
+  const rubric=(showRubric&&t.rubric)?'<div class="grid g3" style="margin-bottom:12px">'+
+    [1,2,3].map(v=>'<div class="rub" data-v="'+v+'"><div class="rh">'+v+' · '+RATE[v-1].label+'</div>'+
+      '<div class="small">'+esc(t.rubric[v]||'—')+'</div></div>').join('')+'</div>':'';
+
+  const rate=RATE.map(r=>'<button data-act="score" data-v="'+r.v+'" class="'+(val&&val.score===r.v?'on':'')+'" '+
+    (vEd&&last?'':'disabled')+'>'+r.v+' · '+r.label+'</button>').join('');
+
+  const periode=t.start?('Periode '+fdate(t.start)+' – '+fdate(t.due)):('Tenggat '+fdate(t.due));
+  const over=pastDue(t);
+  const countPill=val?'':(over?'<span class="pill belum">Dihitung 1</span>':'<span class="pill flat">Belum dihitung</span>');
+  let valNote;
+  if(val) valNote='Divalidasi '+fstamp(val.at)+' oleh '+esc(val.by)+(val.late?' <span class="pill late">Terlambat</span>':'');
+  else if(last) valNote=over?('Belum divalidasi dan '+deadlineLabel(t)+' sudah lewat, jadi dihitung bernilai 1.')
+                           :('Belum divalidasi. Belum ikut dihitung karena '+deadlineLabel(t)+' belum lewat.');
+  else valNote=over?('Belum dikerjakan dan '+deadlineLabel(t)+' sudah lewat, jadi dihitung bernilai 1.')
+                   :('Belum dikerjakan. Belum ikut dihitung karena '+deadlineLabel(t)+' belum lewat.');
+
+  return '<div class="card" style="margin-bottom:16px">'+
+    '<div class="hd"><h3>'+esc(t.code)+' · '+esc(t.title)+'</h3><div class="row">'+countPill+STATUS[st]+'</div></div>'+
+    '<div class="bd">'+
+      (t.desc?'<p class="small muted" style="margin-top:0">'+esc(t.desc)+'</p>':'')+
+      '<div class="small muted" style="margin-bottom:12px">'+periode+' · evidence berupa '+
+        ({file:'berkas',link:'tautan',both:'berkas atau tautan'})[t.accept]+
+        ' · batas perhitungan '+esc(deadlineLabel(t))+'</div>'+
+      rubric+
+      '<div class="item"><div class="lbl">Pengerjaan &amp; evidence <span class="small muted" style="font-weight:400">· diisi peserta</span></div>'+
+        workBlock+'</div>'+
+      '<div class="item" style="border-bottom:0; padding-bottom:0"><div class="lbl">Validasi &amp; penilaian <span class="small muted" style="font-weight:400">· diisi mentor</span></div>'+
+        '<div class="rate" data-rate="'+t.id+'">'+rate+'</div>'+
+        '<label class="f" style="margin-top:10px"><span>Catatan improvement</span>'+
+          '<textarea data-vnote="'+t.id+'" '+(vEd&&last?'':'disabled')+'>'+esc(val?val.note:'')+'</textarea></label>'+
+        '<div class="small muted">'+valNote+'</div>'+
+      '</div>'+
+    '</div></div>';
+}
+
+/* ---------- kartu tugas modul: Bagian A / B / C seperti template Excel ---------- */
+function modTaskCard(p,md,t,vEd,sEd){
+  const s=S.submissions[subKey(t.id,p.id)]||{answers:{},evid:{},submitCount:0,submittedAt:null,validation:null};
+  const ans=s.answers||{}, evid=s.evid||{};
+  const val=s.validation||{checks:{},overall:null,summary:'',follow:'',by:'',at:null,late:false};
+  const st=subStatus(t.id,p.id), over=pastDue(t);
+  const countPill=val.overall?'':(over?'<span class="pill belum">Dihitung 1</span>':'<span class="pill flat">Belum dihitung</span>');
+
+  const objs=(t.obj||[]).map(o=>'<li>'+esc(o)+'</li>').join('');
+  const acts=(t.act||[]).map(a=>'<div class="item"><div class="lbl">'+esc(a.label)+'</div>'+
+      (a.guide?'<div class="small muted" style="margin:-4px 0 7px">'+esc(a.guide)+'</div>':'')+
+      '<textarea data-ans="'+t.id+'|'+a.id+'" '+(sEd?'':'disabled')+' placeholder="Isi jawaban Anda di sini">'+esc(ans[a.id]||'')+'</textarea></div>').join('');
+
+  const evs=(t.ev||[]).map(function(e,ix){
+    const c=evid[e.id]||{};
+    return '<div class="item"><label class="row" style="align-items:flex-start; gap:9px">'+
+      '<input type="checkbox" data-evc="'+t.id+'|'+e.id+'" '+(c.on?'checked':'')+' '+(sEd?'':'disabled')+' style="width:auto; margin-top:4px">'+
+      '<span><strong>'+(ix+1)+'. '+esc(e.label)+'</strong></span></label>'+
+      '<div class="grid g2" style="margin-top:8px">'+
+        (sEd?'<label class="f"><span>Unggah berkas</span><input type="file" data-evf="'+t.id+'|'+e.id+'"></label>':'')+
+        '<label class="f"><span>Tautan</span><input type="text" data-evl="'+t.id+'|'+e.id+'" value="'+esc(c.link||'')+'" '+(sEd?'':'disabled')+' placeholder="https://..."></label>'+
+      '</div>'+
+      '<label class="f"><span>Nama file / keterangan lampiran</span>'+
+        '<input type="text" data-evn="'+t.id+'|'+e.id+'" value="'+esc(c.note||'')+'" '+(sEd?'':'disabled')+'></label>'+
+      (c.fileName?'<div class="small muted">Berkas terunggah: '+esc(c.fileName)+' '+kb(c.size)+'</div>':'')+
+    '</div>';
+  }).join('');
+
+  const chks=(t.chk||[]).map(function(c,ix){
+    const cv=(val.checks||{})[c.id]||{};
+    const rate=RATE.map(r=>'<button data-act="score" data-v="'+r.v+'" class="'+(cv.score===r.v?'on':'')+'" '+(vEd?'':'disabled')+' title="'+r.label+'">'+r.v+'</button>').join('');
+    return '<div class="item"><div class="lbl">'+(ix+1)+'. '+esc(c.label)+'</div>'+
+      '<div class="rate" data-rate="chk|'+t.id+'|'+c.id+'">'+rate+'</div>'+
+      '<label class="f" style="margin-top:8px"><span>Catatan mentor</span>'+
+        '<input type="text" data-cn="'+t.id+'|'+c.id+'" value="'+esc(cv.note||'')+'" '+(vEd?'':'disabled')+'></label></div>';
+  }).join('');
+
+  const rub=[1,2,3].map(v=>'<div class="rub" data-v="'+v+'"><div class="rh">'+v+' · '+RATE[v-1].label+'</div>'+
+    '<div class="small">'+esc((t.rubric||{})[v]||'—')+'</div></div>').join('');
+  const ovRate=RATE.map(r=>'<button data-act="score" data-v="'+r.v+'" class="'+(val.overall===r.v?'on':'')+'" '+(vEd?'':'disabled')+'>'+r.v+' · '+r.label+'</button>').join('');
+
+  const subInfo=s.submitCount?('Submission ke-'+s.submitCount+' · '+fstamp(s.submittedAt)):'Belum pernah dikirim peserta.';
+  const valInfo=val.at?('Divalidasi '+fstamp(val.at)+' oleh '+esc(val.by||'—')+(val.late?' <span class="pill late">Terlambat</span>':''))
+    :(over?('Belum divalidasi dan tenggat '+fdate(t.due)+' sudah lewat, jadi dihitung bernilai 1.')
+          :('Belum divalidasi. Belum ikut dihitung karena tenggat '+fdate(t.due)+' belum lewat.'));
+
+  const btns=(sEd?'<button class="btn" data-act="submod" data-t="'+t.id+'" data-p="'+p.id+'">'+(s.submitCount?'Kirim ulang':'Kirim tugas')+'</button>':'')+
+    (vEd?'<button class="btn" data-act="savemodval" data-t="'+t.id+'" data-p="'+p.id+'">Simpan validasi</button>':'');
+
+  return '<div class="card" style="margin-bottom:16px">'+
+    '<div class="hd"><div><h3>'+esc(t.code)+' — '+esc(t.title)+'</h3>'+
+      '<div class="small muted">'+esc(md.facilitator||'')+(md.session?' · '+esc(md.session):'')+
+      ' · Tenggat '+fdate(t.due)+(md.competency?' · '+esc(md.competency):'')+'</div></div>'+
+      '<div class="row">'+countPill+STATUS[st]+'</div></div>'+
+    '<div class="bd">'+
+      (objs?'<div class="secbox"><div class="sech">Tujuan tugas ini — peserta mampu untuk</div><ul class="small" style="margin:0; padding-left:18px">'+objs+'</ul></div>':'')+
+      '<div class="sech2">Bagian A — Action <span>diisi peserta</span></div>'+(acts||'<p class="muted small">Belum ada poin action.</p>')+
+      '<div class="sech2">Bagian B — Evidence <span>diisi peserta</span></div>'+(evs||'<p class="muted small">Belum ada daftar evidence.</p>')+
+      '<div class="small muted" style="margin:10px 0 2px">'+subInfo+'</div>'+
+      '<div class="sech2">Bagian C — Validasi mentor <span>diisi Region Manager</span></div>'+(chks||'<p class="muted small">Belum ada poin yang dicek mentor.</p>')+
+      '<div class="sech2">Kesimpulan mentor atas tugas ini</div>'+
+      '<div class="grid g3" style="margin-bottom:12px">'+rub+'</div>'+
+      '<div class="small muted" style="margin-bottom:5px">Rating keseluruhan — angka inilah yang dipakai sebagai nilai tugas</div>'+
+      '<div class="rate" data-rate="ov|'+t.id+'">'+ovRate+'</div>'+
+      '<label class="f" style="margin-top:12px"><span>Catatan &amp; observasi kunci</span>'+
+        '<textarea data-msum="'+t.id+'" '+(vEd?'':'disabled')+'>'+esc(val.summary||'')+'</textarea></label>'+
+      '<label class="f"><span>Tindak lanjut yang diminta</span>'+
+        '<textarea data-mfu="'+t.id+'" '+(vEd?'':'disabled')+'>'+esc(val.follow||'')+'</textarea></label>'+
+      '<div class="small muted">'+valInfo+'</div>'+
+    '</div>'+
+    (btns?'<div class="savebar"><span class="small muted">Peserta mengisi Bagian A dan B, mentor mengisi Bagian C dan kesimpulan.</span><div class="row">'+btns+'</div></div>':'')+
+  '</div>';
+}
+
+function tabModules(p,base){
+  const vEd=canValidate(p.id), sEd=canSubmit(p.id);
+  const mods=modulesSorted();
+  const sc=modScore(p.id), rd=readiness(sc);
+  const all=allModTasks();
+  const done=all.filter(t=>subStatus(t.id,p.id)==='selesai').length;
+  const wait=all.filter(t=>subStatus(t.id,p.id)==='menunggu').length;
+  const cnt=counted(all,p.id);
+  const head='<div class="card" style="margin-bottom:16px"><div class="bd spread">'+
+    '<div><div class="small muted">Tugas Modul — Bulan 1</div>'+
+      '<div class="small">'+mods.length+' modul · '+all.length+' tugas</div>'+
+      '<div class="small muted">'+done+' selesai · '+wait+' menunggu validasi · '+(all.length-done-wait)+' belum dikirim</div></div>'+
+    '<div style="text-align:right"><div class="score">'+n1(sc)+'</div>'+
+      '<span class="pill '+rd.cls+'">'+rd.label+'</span>'+
+      '<div class="small muted" style="margin-top:4px">'+cnt+' dari '+all.length+' tugas sudah masuk perhitungan</div></div></div></div>';
+  const petunjuk='<div class="card" style="margin-bottom:16px"><div class="hd"><h3>Cara mengisi</h3></div><div class="bd">'+
+    '<ul class="small" style="margin:0; padding-left:18px">'+
+    '<li>Setiap tugas punya tiga bagian: Bagian A Action, Bagian B Evidence, dan Bagian C Validasi Mentor.</li>'+
+    '<li>Evidence harus berasal dari toko Anda sendiri dan berpenanggal. Dokumen contoh, template kosong, atau data toko lain tidak diterima.</li>'+
+    '<li>Tugas tanpa evidence dianggap belum dikumpulkan.</li>'+
+    '<li>Kirim minimal 3 hari kerja sebelum tenggat agar mentor sempat memvalidasi.</li>'+
+    '<li>Tugas yang sudah divalidasi menjadi bahan bawaan ke Checkpoint 1. Tidak ada materi baru yang perlu dibuat untuk checkpoint.</li>'+
+    '</ul></div></div>';
+  if(!mods.length){
+    return head+'<div class="card"><div class="empty"><strong>Belum ada modul</strong>'+
+      (role()==='admin'?'Tambahkan modul dan tugasnya dari menu Modul &amp; Tugas.':'Admin program belum menetapkan modul.')+'</div></div>';
+  }
+  const blocks=mods.map(function(md){
+    const ts=modTasks(md.id);
+    const inner=ts.length?ts.map(t=>modTaskCard(p,md,t,vEd,sEd)).join('')
+      :'<div class="card" style="margin-bottom:16px"><div class="empty">Belum ada tugas di modul ini.</div></div>';
+    const v=scoreList(ts,p.id);
+    return '<div class="modblk"><div class="modhd"><div><h2 style="margin:0">'+md.order+'. '+esc(md.name)+'</h2>'+
+      '<div class="small muted">'+esc(TRACKS[md.track]||'')+(md.facilitator?' · '+esc(md.facilitator):'')+(md.session?' · '+esc(md.session):'')+'</div></div>'+
+      '<span class="pill flat">'+(v.length?n1(avg(v)):'—')+'</span></div>'+inner+'</div>';
+  }).join('');
+  return head+petunjuk+blocks;
+}
+
+function tabCheckpoint(p,m,base){
+  if(MONTHS.indexOf(m)<0) return guard(false);
+  const c=CP(m);
+  const a=assess(p.id,m)||{summary:'',follow:'',savedAt:null,late:false};
+  const vEd=canValidate(p.id), sEd=canSubmit(p.id);
+  const s=cpScore(p.id,m), rd=readiness(s);
+  const ts=tasksOf(m);
+  const done=ts.filter(t=>subStatus(t.id,p.id)==='selesai').length;
+  const wait=ts.filter(t=>subStatus(t.id,p.id)==='menunggu').length;
+  const cnt=counted(ts,p.id);
+  const over=today()>c.end;
+
+  const head='<div class="card" style="margin-bottom:16px"><div class="bd spread">'+
+    '<div><div class="small muted">'+esc(c.name)+'</div>'+
+      '<div class="small">Jadwal '+fdate(c.start)+' – '+fdate(c.end)+' · '+ts.length+' poin tugas · '+(over?'jadwal sudah lewat':'jadwal belum lewat')+'</div>'+
+      '<div class="small muted">'+done+' selesai · '+wait+' menunggu validasi · '+(ts.length-done-wait)+' belum submit</div>'+
+      '<div class="small muted">'+(a.savedAt?('Terakhir dinilai '+fstamp(a.savedAt)+(a.late?' · di luar jadwal':'')):'Belum pernah dinilai mentor')+'</div></div>'+
+    '<div style="text-align:right"><div class="score">'+n1(s)+'</div>'+
+      '<span class="pill '+rd.cls+'">'+rd.label+'</span>'+
+      '<div class="small muted" style="margin-top:4px">'+cnt+' dari '+ts.length+' poin sudah masuk perhitungan</div></div></div></div>';
+
+  let pillarBlock='';
+  if(m===2||m===3){
+    const n=m===2?3:4, fld=m===2?'pillars2':'pillars3';
+    const cur=p[fld]||[];
+    const inputs=[];
+    for(let i=0;i<n;i++){
+      inputs.push('<label class="f"><span>Pilar '+(i+1)+'</span>'+
+        '<input type="text" data-pil="'+i+'" value="'+esc(cur[i]||'')+'" placeholder="Tulis nama pilar" '+(sEd?'':'disabled')+'></label>');
+    }
+    pillarBlock='<div class="card" style="margin-bottom:16px"><div class="hd"><h3>'+(m===2?'Tiga pilar prioritas':'Empat pilar sisanya')+'</h3>'+
+      '<span class="small muted">Ditulis oleh peserta</span></div>'+
+      '<div class="bd"><p class="small muted" style="margin-top:0">'+(m===2?'Tuliskan tiga pilar yang Anda jalankan lebih dulu, sesuai Project Charter Anda.':'Tuliskan empat pilar sisanya yang Anda jalankan pada tahap ini.')+'</p>'+
+      '<div class="grid g2">'+inputs.join('')+'</div></div>'+
+      (sEd?'<div class="savebar"><span class="small muted">Nama pilar dapat diperbarui kapan saja.</span>'+
+        '<button class="btn" data-act="savepillars" data-p="'+p.id+'" data-m="'+m+'">Simpan pilar</button></div>':'')+'</div>';
+  }
+
+  if(!ts.length){
+    return head+pillarBlock+'<div class="card"><div class="empty"><strong>Belum ada poin tugas</strong>'+
+      (role()==='admin'?'Tambahkan poin tugas untuk checkpoint ini dari menu Poin Tugas Checkpoint.':'Admin program belum menetapkan poin tugas untuk checkpoint ini.')+'</div></div>';
+  }
+
+  const cards=ts.map(t=>taskCard(p,t,vEd,sEd,false)).join('');
+  const closing='<div class="card"><div class="hd"><h3>Kesimpulan mentor untuk checkpoint ini</h3></div><div class="bd">'+
+    '<label class="f"><span>Kesimpulan</span><textarea id="cp_sum" '+(vEd?'':'disabled')+'>'+esc(a.summary||'')+'</textarea></label>'+
+    '<label class="f"><span>Tindak lanjut yang disarankan</span><textarea id="cp_follow" '+(vEd?'':'disabled')+'>'+esc(a.follow||'')+'</textarea></label></div>'+
+    (vEd?'<div class="savebar"><span class="small muted">Nilai dan catatan dapat diubah kapan saja. Waktu validasi tercatat otomatis.</span>'+
+      '<button class="btn" data-act="savecp" data-p="'+p.id+'" data-m="'+m+'">Simpan perubahan</button></div>':'')+'</div>';
+
+  return head+pillarBlock+cards+closing;
+}
+
+function tabSummary(p,base){
+  const comps=components(p.id);
+  const filled=comps.filter(c=>c.score!=null).length;
+  const cards=comps.map(function(c){
+    const isMod=c.key==='mod';
+    const ts=isMod?allModTasks():tasksOf(Number(c.key.replace('cp','')));
+    const a=assess(p.id,isMod?'mod':Number(c.key.replace('cp','')));
+    const rd=readiness(c.score);
+    const done=ts.filter(t=>subStatus(t.id,p.id)==='selesai').length;
+    const wait=ts.filter(t=>subStatus(t.id,p.id)==='menunggu').length;
+    return '<div class="card"><div class="bd">'+
+      '<div class="small muted">'+esc(isMod?'Tugas Modul':CP(Number(c.key.replace('cp',''))).name)+'</div>'+
+      '<div class="score">'+n1(c.score)+'</div>'+
+      '<div class="scorebar"><i class="'+(rd.key==='siap'?'':rd.key)+'" style="width:'+(c.score?Math.min(100,(c.score/3)*100):0)+'%"></i></div>'+
+      '<div class="small muted" style="margin-top:8px">'+done+' selesai · '+wait+' menunggu · '+(ts.length-done-wait)+' belum submit</div>'+
+      '<div class="small muted">'+counted(ts,p.id)+' dari '+ts.length+' masuk perhitungan</div>'+
+      '<div class="small muted">'+(a&&a.savedAt?('Terakhir dinilai '+fstamp(a.savedAt)):'Belum dinilai mentor')+'</div>'+
+      '<div style="margin-top:10px"><a class="btn ghost sm" href="'+base+'/'+c.key+'">Buka</a></div>'+
+      '</div></div>';
+  }).join('');
+  const notes=['mod',1,2,3,4].map(function(k){
+    const a=assess(p.id,k);
+    if(!a||(!a.summary&&!a.follow)) return '';
+    const label=k==='mod'?'Tugas Modul':CP(k).name;
+    return '<div class="item"><div class="lbl">'+esc(label)+'</div>'+
+      (a.summary?'<p class="small" style="margin:0 0 4px"><strong>Kesimpulan.</strong> '+esc(a.summary)+'</p>':'')+
+      (a.follow?'<p class="small" style="margin:0"><strong>Tindak lanjut.</strong> '+esc(a.follow)+'</p>':'')+'</div>';
+  }).join('');
+  const pil2=(p.pillars2||[]).filter(Boolean), pil3=(p.pillars3||[]).filter(Boolean);
+  return '<div class="card" style="margin-bottom:16px"><div class="bd">'+
+      '<p class="small muted" style="margin:0">Hari ini <strong>'+fdate(today())+'</strong>. '+filled+' dari 5 komponen sudah terbentuk nilainya. '+
+      'Tugas yang batasnya sudah lewat namun belum divalidasi dihitung bernilai 1; yang batasnya belum lewat belum ikut dihitung, '+
+      'sehingga angka ini tidak menghukum pekerjaan yang memang belum waktunya.</p></div></div>'+
+    '<div class="grid g3" style="margin-bottom:16px">'+cards+'</div>'+
+    '<div class="grid g2">'+
+      '<div class="card"><div class="bd"><h3>Pilar yang dikerjakan</h3>'+
+        '<p class="small" style="margin-bottom:4px"><strong>Checkpoint 2 — 3 pilar prioritas.</strong> '+(pil2.length?esc(pil2.join(' · ')):'<span class="muted">belum diisi peserta</span>')+'</p>'+
+        '<p class="small"><strong>Checkpoint 3 — 4 pilar sisanya.</strong> '+(pil3.length?esc(pil3.join(' · ')):'<span class="muted">belum diisi peserta</span>')+'</p></div></div>'+
+      '<div class="card"><div class="hd"><h3>Catatan mentor</h3></div><div class="bd">'+
+        (notes||'<p class="muted small">Belum ada kesimpulan mentor di komponen mana pun.</p>')+'</div></div>'+
+    '</div>';
+}
+
+/* ---------- beranda peserta ---------- */
+function viewPesertaHome(){
+  const p=P(myPid()); if(!p) return guard(false);
+  const sc=totalScore(p.id), rd=readiness(sc);
+  const cards=components(p.id).map(function(c){
+    const isMod=c.key==='mod';
+    const ts=isMod?allModTasks():tasksOf(Number(c.key.replace('cp','')));
+    const done=ts.filter(t=>subStatus(t.id,p.id)==='selesai').length;
+    return '<div class="card"><div class="bd"><div class="small muted">'+esc(isMod?'Tugas Modul':'Checkpoint '+c.key.replace('cp',''))+'</div>'+
+      '<div class="score">'+n1(c.score)+'</div>'+
+      '<div class="small muted">'+done+'/'+ts.length+' tugas selesai</div>'+
+      '<div class="small muted">'+counted(ts,p.id)+' masuk perhitungan</div>'+
+      '<div style="margin-top:8px"><a class="btn ghost sm" href="#/cp-saya/'+c.key+'">Buka</a></div></div></div>';
+  }).join('');
+  const pending=S.tasks.filter(t=>subStatus(t.id,p.id)==='belum');
+  const link=t=>'#/cp-saya/'+(t.scope==='mod'?'mod':'cp'+t.cp);
+  const where=t=>t.scope==='mod'?('Modul '+esc((MOD(t.moduleId)||{}).name||'')):('Checkpoint '+t.cp);
+  return '<div class="pagehead"><h1>Halo, '+esc(p.name.split(' ')[0])+'</h1>'+
+    '<p>'+esc(p.store)+' · Mentor '+esc((M(p.mentorId)||{}).name||'belum ditetapkan')+'</p></div>'+
+    '<div class="card" style="margin-bottom:16px"><div class="bd spread">'+
+      '<div><div class="small muted">Nilai kesiapan total</div><div class="score">'+n1(sc)+'</div>'+
+        '<span class="pill '+rd.cls+'">'+rd.label+'</span></div>'+
+      '<div style="max-width:44ch" class="small muted">Rata-rata dari Tugas Modul dan empat checkpoint. Tugas yang batasnya sudah lewat tapi belum divalidasi dihitung bernilai 1, sedangkan yang batasnya belum lewat belum ikut dihitung. Hari ini '+fdate(today())+'.</div>'+
+    '</div></div>'+
+    '<div class="grid g3" style="margin-bottom:16px">'+cards+'</div>'+
+    '<div class="card"><div class="hd"><h3>Yang perlu Anda kerjakan</h3></div><div class="bd">'+
+      (pending.length?pending.map(t=>'<div class="item spread"><div><div class="lbl">'+esc(t.code)+' · '+esc(t.title)+'</div>'+
+        '<div class="small muted">Tenggat '+fdate(t.due)+' · '+where(t)+(pastDue(t)?' · <span style="color:var(--red)">sudah lewat batas</span>':'')+'</div></div>'+
+        '<a class="btn ghost sm" href="'+link(t)+'">Kerjakan</a></div>').join('')
+        :'<p class="muted">Semua tugas sudah Anda kirim.</p>')+
+    '</div></div>';
+}
+
+/* ---------- timeline ---------- */
+function viewTimeline(){
+  const adm=role()==='admin';
+  const items=S.timeline.items.slice();
+  if(!items.length) return '<div class="card"><div class="empty"><strong>Timeline belum diisi</strong>Admin dapat menambahkan baris kegiatan.</div></div>'+(adm?timelineEditor():'');
+  const dates=items.flatMap(i=>[i.start,i.end]).filter(Boolean).sort();
+  const min=startOfMonth(dates[0]), max=endOfMonth(dates[dates.length-1]);
+  const span=max-min;
+  const months=[]; let cur=new Date(min);
+  while(cur<=max){ months.push(new Date(cur)); cur=new Date(cur.getFullYear(),cur.getMonth()+1,1); }
+  let gridHtml='';
+  S.timeline.groups.forEach(function(g){
+    const gi=items.filter(i=>i.g===g); if(!gi.length) return;
+    const rowNames=[...new Set(gi.map(i=>i.row))];
+    const rows=rowNames.map(function(rn){
+      const bars=gi.filter(i=>i.row===rn).map(function(i){
+        const st=new Date(i.start+'T00:00:00'), e=new Date((i.end||i.start)+'T00:00:00');
+        const l=((st-min)/span)*100, w=Math.max(((e-st)/span)*100,0.6);
+        if(i.kind==='milestone'){
+          return '<div class="tldot" style="left:'+l+'%"></div><div class="tlnote" style="left:calc('+l+'% + 12px)">'+esc(i.note||'')+'</div>';
+        }
+        const inbar=w>13;
+        return '<div class="tlbar '+esc(i.style||'navy')+'" style="left:'+l+'%; width:'+w+'%"></div>'+
+          '<div class="tlnote '+(inbar?'inbar':'')+'" style="left:'+(inbar?'calc('+l+'% + 8px)':'calc('+(l+w)+'% + 8px)')+'">'+esc(i.note||'')+'</div>';
+      }).join('');
+      return '<div class="tlrow"><div class="lab">'+esc(rn)+'</div><div class="tltrack">'+bars+'</div></div>';
+    }).join('');
+    gridHtml+='<div class="tlgrp" data-g="'+esc(g)+'"><div class="gname">'+esc(g)+'</div><div class="tlrows">'+rows+'</div></div>';
+  });
+  const now=new Date(); let todayMark='';
+  if(now>=min&&now<=max){ const l=((now-min)/span)*100; todayMark='<div class="tltoday" style="left:calc(250px + (100% - 250px) * '+(l/100)+')"></div>'; }
+  const head='<div class="tlhead"><div class="lab">Kegiatan</div><div class="mon">'+
+    months.map(m=>'<div>'+BL[m.getMonth()]+' '+m.getFullYear()+'</div>').join('')+'</div></div>';
+  return '<div class="pagehead"><h1>Timeline program</h1>'+
+    '<p>Gambaran menyeluruh LEAP Batch 5, dari pembelajaran hingga panel final. '+(adm?'Perubahan yang Anda simpan langsung terlihat oleh mentor dan peserta.':'Diatur oleh admin program.')+'</p></div>'+
+    '<div class="tl"><div class="tlinner" style="position:relative">'+head+gridHtml+todayMark+'</div></div>'+(adm?timelineEditor():'');
+}
+function startOfMonth(iso){ const d=new Date(iso+'T00:00:00'); return new Date(d.getFullYear(),d.getMonth(),1); }
+function endOfMonth(iso){ const d=new Date(iso+'T00:00:00'); return new Date(d.getFullYear(),d.getMonth()+1,0); }
+function timelineEditor(){
+  const names={navy:'Navy',soft:'Biru muda',mentor:'Peach',red:'Merah'};
+  const rows=S.timeline.items.map((i,ix)=>'<tr>'+
+    '<td><select data-tl="'+ix+'" data-fld="g">'+S.timeline.groups.map(g=>'<option value="'+esc(g)+'" '+(g===i.g?'selected':'')+'>'+esc(g)+'</option>').join('')+'</select></td>'+
+    '<td><input type="text" data-tl="'+ix+'" data-fld="row" value="'+esc(i.row)+'"></td>'+
+    '<td><input type="date" data-tl="'+ix+'" data-fld="start" value="'+esc(i.start)+'"></td>'+
+    '<td><input type="date" data-tl="'+ix+'" data-fld="end" value="'+esc(i.end||i.start)+'"></td>'+
+    '<td><select data-tl="'+ix+'" data-fld="kind"><option value="bar" '+(i.kind==='bar'?'selected':'')+'>Rentang</option>'+
+      '<option value="milestone" '+(i.kind==='milestone'?'selected':'')+'>Tanggal tunggal</option></select></td>'+
+    '<td><select data-tl="'+ix+'" data-fld="style">'+
+      ['navy','soft','mentor','red'].map(s=>'<option value="'+s+'" '+(i.style===s?'selected':'')+'>'+names[s]+'</option>').join('')+'</select></td>'+
+    '<td><input type="text" data-tl="'+ix+'" data-fld="note" value="'+esc(i.note||'')+'"></td>'+
+    '<td><button class="btn ghost sm" data-act="tldel" data-ix="'+ix+'">Hapus</button></td></tr>').join('');
+  return '<div class="card" style="margin-top:20px"><div class="hd"><h3>Atur isi timeline</h3>'+
+    '<button class="btn ghost sm" data-act="tladd">Tambah baris</button></div>'+
+    '<div class="bd tight"><div class="tscroll"><table>'+
+      '<thead><tr><th>Kelompok</th><th>Nama kegiatan</th><th>Mulai</th><th>Selesai</th><th>Bentuk</th><th>Warna</th><th>Keterangan</th><th></th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></div></div>'+
+    '<div class="savebar"><span class="small muted">Kelompok tersedia: '+S.timeline.groups.join(', ')+'.</span>'+
+      '<button class="btn" data-act="tlsave">Simpan perubahan timeline</button></div></div>';
+}
+
+/* ============================================================
+   EVENTS
+   ============================================================ */
+function bind(){
+  document.querySelectorAll('[data-act]').forEach(el=>{
+    el.addEventListener('click',e=>{ e.preventDefault(); act(el.dataset.act,el); });
+  });
+  const imp=document.getElementById('impfile');
+  if(imp) imp.addEventListener('change',doImport);
+  const lp=document.getElementById('lp');
+  if(lp) lp.addEventListener('keydown',e=>{ if(e.key==='Enter') act('login'); });
+}
+function act(a,el){
+  const d=el?el.dataset:{};
+  switch(a){
+    case 'menu': { const s=document.getElementById('side'); if(s) s.classList.toggle('open'); break; }
+    case 'logout': S.session=null; save(); location.hash='#/ringkasan'; render(); break;
+    case 'login': {
+      const u=($('#lu').value||'').trim().toLowerCase(), p=$('#lp').value||'';
+      const f=S.users.find(x=>x.username===u&&x.password===p);
+      if(!f){ $('#app').innerHTML=viewLogin('Nama pengguna atau kata sandi tidak cocok. Coba admin / admin123.'); bind(); return; }
+      S.session=f.id; save(); location.hash='#/ringkasan'; render(); break;
+    }
+    case 'pnew': openPForm(null); break;
+    case 'ped': openPForm(d.id); break;
+    case 'pcancel': document.getElementById('pform').style.display='none'; break;
+    case 'psave': savePerson(); break;
+    case 'pdel': {
+      if(!confirm('Hapus peserta ini beserta kiriman dan penilaiannya?')) return;
+      S.participants=S.participants.filter(x=>x.id!==d.id);
+      S.users=S.users.filter(u=>!(u.role==='peserta'&&u.refId===d.id));
+      Object.keys(S.submissions).forEach(k=>{ if(k.endsWith('|'+d.id)) delete S.submissions[k]; });
+      Object.keys(S.assessments).forEach(k=>{ if(k.indexOf(d.id+'|')===0) delete S.assessments[k]; });
+      save(); toast('Peserta dihapus.'); render(); break;
+    }
+    case 'mnew': openMForm(null); break;
+    case 'med': openMForm(d.id); break;
+    case 'mcancel': document.getElementById('mform').style.display='none'; break;
+    case 'msave': saveMentor(); break;
+    case 'mdel': {
+      if(S.participants.some(p=>p.mentorId===d.id)){ alert('Mentor ini masih memegang peserta. Pindahkan pesertanya lebih dulu.'); return; }
+      if(!confirm('Hapus mentor ini?')) return;
+      S.mentors=S.mentors.filter(x=>x.id!==d.id);
+      S.users=S.users.filter(u=>!(u.role==='mentor'&&u.refId===d.id));
+      save(); toast('Mentor dihapus.'); render(); break;
+    }
+    /* modul */
+    case 'mdnew': openMdForm(null); break;
+    case 'mdedit': openMdForm(d.id); break;
+    case 'mdcancel': document.getElementById('mdform').style.display='none'; break;
+    case 'mdsave': saveModule(); break;
+    case 'mddel': {
+      const n=modTasks(d.id).length;
+      if(!confirm('Hapus modul ini beserta lembar tugas dan seluruh pengerjaan pesertanya?')) return;
+      modTasks(d.id).forEach(t=>{
+        Object.keys(S.submissions).forEach(k=>{ if(k.indexOf(t.id+'|')===0) delete S.submissions[k]; });
+      });
+      S.tasks=S.tasks.filter(t=>!(t.scope==='mod'&&t.moduleId===d.id));
+      S.modules=S.modules.filter(x=>x.id!==d.id);
+      save(); toast('Modul dihapus.'); render(); break;
+    }
+    case 'submod': submitModTask(d.t,d.p); break;
+    case 'savemodval': saveModValidation(d.t,d.p); break;
+    /* tugas checkpoint */
+    case 'tnew': openTForm(null,d.m); break;
+    case 'ted': openTForm(d.id); break;
+    case 'tcancel': document.getElementById('tform').style.display='none'; break;
+    case 'tsave': saveTask(); break;
+    case 'tdel': {
+      if(!confirm('Hapus tugas ini beserta kiriman peserta untuk tugas tersebut?')) return;
+      S.tasks=S.tasks.filter(x=>x.id!==d.id);
+      Object.keys(S.submissions).forEach(k=>{ if(k.indexOf(d.id+'|')===0) delete S.submissions[k]; });
+      save(); toast('Tugas dihapus.'); render(); break;
+    }
+    case 'cpsave': {
+      document.querySelectorAll('[data-cp]').forEach(i=>{ const c=CP(Number(i.dataset.cp)); if(c) c[i.dataset.fld]=i.value; });
+      save(); toast('Checkpoint tersimpan.'); render(); break;
+    }
+    case 'setsave': {
+      S.settings.thBelum=Number($('#set_tb').value||1.6);
+      S.settings.thSiap=Number($('#set_ts').value||2);
+      save(); toast('Ambang kesiapan tersimpan.'); render(); break;
+    }
+    case 'score': {
+      const grp=el.closest('.rate'); grp.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+      el.classList.add('on'); break;
+    }
+    case 'savecp': saveValidations(d.p,Number(d.m)); break;
+    case 'savemod': saveValidations(d.p,'mod'); break;
+    case 'savepillars': savePillars(d.p,Number(d.m)); break;
+    case 'submit': doSubmit(d.t,d.p); break;
+    case 'tladd': S.timeline.items.push({id:uid('x'),g:S.timeline.groups[0],row:'Kegiatan baru',start:today(),end:today(),kind:'bar',style:'navy',note:''}); save(); render(); break;
+    case 'tldel': S.timeline.items.splice(Number(d.ix),1); save(); render(); break;
+    case 'tlsave': {
+      document.querySelectorAll('[data-tl]').forEach(i=>{
+        const it=S.timeline.items[Number(i.dataset.tl)]; if(it) it[i.dataset.fld]=i.value;
+      });
+      save(); toast('Timeline tersimpan.'); render(); break;
+    }
+    case 'export': {
+      const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+      const a2=document.createElement('a'); a2.href=URL.createObjectURL(blob);
+      a2.download='leap-batch5-tracker-'+today()+'.json'; a2.click();
+      setTimeout(()=>URL.revokeObjectURL(a2.href),2000); break;
+    }
+    case 'importpick': document.getElementById('impfile').click(); break;
+    case 'reset': {
+      if(!confirm('Semua data akan dihapus dan dikembalikan ke kondisi awal. Lanjutkan?')) return;
+      S=seed(); save(); location.hash='#/ringkasan'; render(); toast('Data dikembalikan ke kondisi awal.'); break;
+    }
+  }
+}
+
+/* ---------- form helpers ---------- */
+function openPForm(id){
+  if(!S.mentors.length){ alert('Tambahkan minimal satu mentor lebih dulu.'); return; }
+  const f=document.getElementById('pform'); if(!f) return; f.style.display='';
+  const p=id?P(id):null;
+  document.getElementById('pformtitle').textContent=p?'Ubah peserta':'Tambah peserta';
+  document.getElementById('pf_id').value=p?p.id:'';
+  document.getElementById('pf_name').value=p?p.name:'';
+  document.getElementById('pf_store').value=p?p.store:'';
+  document.getElementById('pf_mentor').value=p?p.mentorId:(S.mentors[0]||{}).id||'';
+  const u=p?S.users.find(x=>x.role==='peserta'&&x.refId===p.id):null;
+  document.getElementById('pf_user').value=u?u.username:'';
+  document.getElementById('pf_pass').value=u?u.password:'peserta123';
+  f.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function savePerson(){
+  const id=document.getElementById('pf_id').value;
+  const name=document.getElementById('pf_name').value.trim();
+  const store=document.getElementById('pf_store').value.trim();
+  const mentorId=document.getElementById('pf_mentor').value;
+  const un=document.getElementById('pf_user').value.trim().toLowerCase();
+  const pw=document.getElementById('pf_pass').value;
+  if(!name){ alert('Nama peserta belum diisi.'); return; }
+  if(!un){ alert('Nama pengguna belum diisi.'); return; }
+  if(S.users.some(u=>u.username===un&&!(id&&u.role==='peserta'&&u.refId===id))){ alert('Nama pengguna sudah dipakai.'); return; }
+  if(id){
+    const p=P(id); p.name=name; p.store=store; p.mentorId=mentorId;
+    const u=S.users.find(x=>x.role==='peserta'&&x.refId===id);
+    if(u){ u.username=un; u.password=pw; u.name=name; }
+  }else{
+    const np={id:uid('p'),name:name,store:store,mentorId:mentorId,email:'',pillars2:['','',''],pillars3:['','','','']};
+    S.participants.push(np);
+    S.users.push({id:uid('u'),username:un,password:pw,role:'peserta',refId:np.id,name:name});
+  }
+  save(); toast('Peserta tersimpan.'); render();
+}
+function openMForm(id){
+  const f=document.getElementById('mform'); if(!f) return; f.style.display='';
+  const m=id?M(id):null;
+  document.getElementById('mformtitle').textContent=m?'Ubah mentor':'Tambah mentor';
+  document.getElementById('mf_id').value=m?m.id:'';
+  document.getElementById('mf_name').value=m?m.name:'';
+  document.getElementById('mf_region').value=m?m.region:'';
+  document.getElementById('mf_email').value=m?m.email||'':'';
+  const u=m?S.users.find(x=>x.role==='mentor'&&x.refId===m.id):null;
+  document.getElementById('mf_user').value=u?u.username:'';
+  document.getElementById('mf_pass').value=u?u.password:'mentor123';
+  f.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function saveMentor(){
+  const id=document.getElementById('mf_id').value;
+  const name=document.getElementById('mf_name').value.trim();
+  const region=document.getElementById('mf_region').value.trim();
+  const email=document.getElementById('mf_email').value.trim();
+  const un=document.getElementById('mf_user').value.trim().toLowerCase();
+  const pw=document.getElementById('mf_pass').value;
+  if(!name||!un){ alert('Nama dan nama pengguna wajib diisi.'); return; }
+  if(S.users.some(u=>u.username===un&&!(id&&u.role==='mentor'&&u.refId===id))){ alert('Nama pengguna sudah dipakai.'); return; }
+  if(id){
+    const m=M(id); m.name=name; m.region=region; m.email=email;
+    const u=S.users.find(x=>x.role==='mentor'&&x.refId===id);
+    if(u){ u.username=un; u.password=pw; u.name=name; }
+  }else{
+    const nm={id:uid('m'),name:name,region:region,email:email};
+    S.mentors.push(nm);
+    S.users.push({id:uid('u'),username:un,password:pw,role:'mentor',refId:nm.id,name:name});
+  }
+  save(); toast('Mentor tersimpan.'); render();
+}
+function openMdForm(id){
+  const f=document.getElementById('mdform'); if(!f) return; f.style.display='';
+  const m=id?MOD(id):null, t=id?modTasks(id)[0]:null;
+  document.getElementById('mdformtitle').textContent=m?'Ubah modul & tugas':'Tambah modul & tugas';
+  document.getElementById('md_id').value=m?m.id:'';
+  document.getElementById('md_name').value=m?m.name:'';
+  document.getElementById('md_track').value=m?m.track:'live';
+  document.getElementById('md_fac').value=m?(m.facilitator||''):'';
+  document.getElementById('md_ses').value=m?(m.session||''):'';
+  document.getElementById('md_comp').value=m?(m.competency||''):'';
+  document.getElementById('md_order').value=m?(m.order||1):(S.modules.length+1);
+  document.getElementById('mt_code').value=t?t.code:('TUGAS '+(S.modules.length+1));
+  document.getElementById('mt_title').value=t?t.title:(m?m.name:'');
+  document.getElementById('mt_due').value=t?(t.due||''):'';
+  document.getElementById('mt_obj').value=t?(t.obj||[]).join('\n'):'';
+  document.getElementById('mt_act').value=t?(t.act||[]).map(a=>a.guide?(a.label+' | '+a.guide):a.label).join('\n'):'';
+  document.getElementById('mt_ev').value=t?(t.ev||[]).map(e=>e.label).join('\n'):'';
+  document.getElementById('mt_chk').value=t?(t.chk||[]).map(c=>c.label).join('\n'):'';
+  const r=(t&&t.rubric)?t.rubric:DEFRUB;
+  document.getElementById('mt_r1').value=r[1]||'';
+  document.getElementById('mt_r2').value=r[2]||'';
+  document.getElementById('mt_r3').value=r[3]||'';
+  f.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function lines(id){
+  return (document.getElementById(id).value||'').split('\n').map(x=>x.trim()).filter(Boolean);
+}
+function saveModule(){
+  const id=document.getElementById('md_id').value;
+  const mo={
+    name:document.getElementById('md_name').value.trim(),
+    track:document.getElementById('md_track').value,
+    facilitator:document.getElementById('md_fac').value.trim(),
+    session:document.getElementById('md_ses').value.trim(),
+    competency:document.getElementById('md_comp').value.trim(),
+    order:Number(document.getElementById('md_order').value||1)
+  };
+  if(!mo.name){ alert('Nama modul belum diisi.'); return; }
+  let mid=id;
+  if(id){ Object.assign(MOD(id),mo); }
+  else { mid=uid('md'); S.modules.push(Object.assign({id:mid},mo)); }
+  const to={
+    scope:'mod', moduleId:mid,
+    code:document.getElementById('mt_code').value.trim()||('TUGAS '+mo.order),
+    title:document.getElementById('mt_title').value.trim()||mo.name,
+    due:document.getElementById('mt_due').value,
+    obj:lines('mt_obj'),
+    act:lines('mt_act').map(function(l,i){
+      const k=l.indexOf('|');
+      return {id:'a'+(i+1),label:(k<0?l:l.slice(0,k)).trim(),guide:(k<0?'':l.slice(k+1)).trim()};
+    }),
+    ev:lines('mt_ev').map((l,i)=>({id:'e'+(i+1),label:l})),
+    chk:lines('mt_chk').map((l,i)=>({id:'c'+(i+1),label:l})),
+    rubric:{
+      1:document.getElementById('mt_r1').value.trim(),
+      2:document.getElementById('mt_r2').value.trim(),
+      3:document.getElementById('mt_r3').value.trim()
+    }
+  };
+  const ex=modTasks(mid)[0];
+  if(ex){ Object.assign(ex,to); } else { S.tasks.push(Object.assign({id:uid('t')},to)); }
+  save(); toast('Modul dan lembar tugasnya tersimpan.'); render();
+}
+
+function openTForm(id,m){
+  const f=document.getElementById('tform'); if(!f) return; f.style.display='';
+  const t=id?T(id):null;
+  document.getElementById('tformtitle').textContent=t?'Ubah poin tugas':'Tambah poin tugas';
+  document.getElementById('tf_id').value=t?t.id:'';
+  document.getElementById('tf_code').value=t?t.code:'T'+(S.tasks.filter(x=>x.scope==='cp').length+1);
+  document.getElementById('tf_title').value=t?t.title:'';
+  document.getElementById('tf_cp').value=t?t.cp:(m||1);
+  document.getElementById('tf_due').value=t?t.due:'';
+  document.getElementById('tf_accept').value=t?t.accept:'both';
+  document.getElementById('tf_desc').value=t?t.desc||'':'';
+  f.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function saveTask(){
+  const id=document.getElementById('tf_id').value;
+  const o={
+    scope:'cp',
+    code:document.getElementById('tf_code').value.trim(),
+    title:document.getElementById('tf_title').value.trim(),
+    cp:Number(document.getElementById('tf_cp').value),
+    due:document.getElementById('tf_due').value,
+    accept:document.getElementById('tf_accept').value,
+    desc:document.getElementById('tf_desc').value.trim()
+  };
+  if(!o.title){ alert('Nama poin tugas belum diisi.'); return; }
+  if(id){ Object.assign(T(id),o); } else { S.tasks.push(Object.assign({id:uid('t')},o)); }
+  save(); toast('Poin tugas tersimpan.'); render();
+}
+
+/* ---------- penyimpanan penilaian ---------- */
+function saveValidations(pid,m){
+  const u=me(), now=new Date().toISOString();
+  const ts=m==='mod'?allModTasks():tasksOf(m);
+  let n=0;
+  ts.forEach(function(t){
+    const key=subKey(t.id,pid), s=S.submissions[key];
+    if(!s||!s.versions.length) return;
+    const grp=document.querySelector('[data-rate="'+t.id+'"]');
+    const on=grp?grp.querySelector('button.on'):null;
+    const noteEl=document.querySelector('[data-vnote="'+t.id+'"]');
+    const note=noteEl?noteEl.value.trim():'';
+    if(!on&&!s.validation) return;
+    const score=on?Number(on.dataset.v):s.validation.score;
+    const late=m==='mod'?isLateDue(t.due,now):isLateCP(m,now);
+    s.validation={score:score,note:note,at:now,by:u.name,late:late};
+    n++;
+  });
+  const a=assess(pid,m)||{summary:'',follow:'',savedAt:null,late:false};
+  a.summary=(document.getElementById('cp_sum')||{}).value||'';
+  a.follow=(document.getElementById('cp_follow')||{}).value||'';
+  a.savedAt=now; a.late=m==='mod'?false:isLateCP(m,now);
+  S.assessments[asKey(pid,m)]=a;
+  save(); toast(n?('Penilaian tersimpan untuk '+n+' tugas.'):'Catatan tersimpan. Belum ada nilai yang dipilih.'); render();
+}
+function savePillars(pid,m){
+  const p=P(pid), fld=m===2?'pillars2':'pillars3';
+  const arr=[...document.querySelectorAll('[data-pil]')].map(i=>i.value.trim());
+  p[fld]=arr; save(); toast('Nama pilar tersimpan.'); render();
+}
+function submitModTask(tid,pid){
+  const t=T(tid);
+  const key=subKey(tid,pid);
+  const s=S.submissions[key]||{answers:{},evid:{},submitCount:0,submittedAt:null,validation:null};
+  s.answers=s.answers||{}; s.evid=s.evid||{};
+  (t.act||[]).forEach(function(a){
+    const el=document.querySelector('[data-ans="'+tid+'|'+a.id+'"]');
+    if(el) s.answers[a.id]=el.value.trim();
+  });
+  (t.ev||[]).forEach(function(e){
+    const cur=s.evid[e.id]||{};
+    const cb=document.querySelector('[data-evc="'+tid+'|'+e.id+'"]');
+    const lk=document.querySelector('[data-evl="'+tid+'|'+e.id+'"]');
+    const nt=document.querySelector('[data-evn="'+tid+'|'+e.id+'"]');
+    const fi=document.querySelector('[data-evf="'+tid+'|'+e.id+'"]');
+    const file=fi&&fi.files&&fi.files[0]?fi.files[0]:null;
+    s.evid[e.id]={
+      on:cb?cb.checked:!!cur.on,
+      link:lk?lk.value.trim():(cur.link||''),
+      note:nt?nt.value.trim():(cur.note||''),
+      fileName:file?file.name:(cur.fileName||''),
+      size:file?file.size:(cur.size||0)
+    };
+  });
+  const isiAda=Object.keys(s.answers).some(k=>s.answers[k])||Object.keys(s.evid).some(k=>s.evid[k].on||s.evid[k].link||s.evid[k].note||s.evid[k].fileName);
+  if(!isiAda){ alert('Isi minimal satu jawaban Bagian A atau satu evidence Bagian B sebelum mengirim.'); return; }
+  s.submitCount=(s.submitCount||0)+1;
+  s.submittedAt=new Date().toISOString();
+  s.validation=null;
+  S.submissions[key]=s; save();
+  toast('Tugas terkirim. Menunggu validasi mentor.'); render();
+}
+function saveModValidation(tid,pid){
+  const t=T(tid), u=me(), now=new Date().toISOString();
+  const key=subKey(tid,pid);
+  const s=S.submissions[key];
+  if(!s||!s.submitCount){ alert('Peserta belum mengirim tugas ini.'); return; }
+  const checks={};
+  (t.chk||[]).forEach(function(c){
+    const grp=document.querySelector('[data-rate="chk|'+tid+'|'+c.id+'"]');
+    const on=grp?grp.querySelector('button.on'):null;
+    const nt=document.querySelector('[data-cn="'+tid+'|'+c.id+'"]');
+    checks[c.id]={score:on?Number(on.dataset.v):null,note:nt?nt.value.trim():''};
+  });
+  const ovGrp=document.querySelector('[data-rate="ov|'+tid+'"]');
+  const ovOn=ovGrp?ovGrp.querySelector('button.on'):null;
+  const sum=document.querySelector('[data-msum="'+tid+'"]');
+  const fu=document.querySelector('[data-mfu="'+tid+'"]');
+  s.validation={
+    checks:checks,
+    overall:ovOn?Number(ovOn.dataset.v):null,
+    summary:sum?sum.value.trim():'',
+    follow:fu?fu.value.trim():'',
+    by:u.name, at:now, late:isLateDue(t.due,now)
+  };
+  S.submissions[key]=s; save();
+  toast(s.validation.overall?'Validasi tersimpan.':'Tersimpan. Rating keseluruhan belum dipilih, jadi tugas ini belum terhitung selesai.');
+  render();
+}
+function doSubmit(tid,pid){
+  const fi=document.querySelector('[data-up="'+tid+'"]');
+  const li=document.querySelector('[data-lk="'+tid+'"]');
+  const wk=document.querySelector('[data-work="'+tid+'"]');
+  const file=fi&&fi.files&&fi.files[0]?fi.files[0]:null;
+  const link=li?li.value.trim():'';
+  const work=wk?wk.value.trim():'';
+  if(!file&&!link&&!work){ alert('Isi uraian pengerjaan, atau lampirkan berkas atau tautan.'); return; }
+  const key=subKey(tid,pid);
+  const s=S.submissions[key]||{versions:[],validation:null};
+  const prev=s.versions.length?s.versions[s.versions.length-1]:null;
+  s.versions.push({
+    n:s.versions.length+1,
+    work:work,
+    kind:file?'file':(link?'link':'text'),
+    fileName:file?file.name:(prev&&!link?prev.fileName:''),
+    size:file?file.size:0,
+    link:link||(prev&&!file?prev.link:''),
+    at:new Date().toISOString()
+  });
+  s.validation=null;
+  S.submissions[key]=s; save();
+  toast('Pengerjaan terkirim. Menunggu validasi mentor.'); render();
+}
+function doImport(e){
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=function(){
+    try{
+      const o=JSON.parse(r.result);
+      if(!o||!o.users||!o.participants) throw new Error('Struktur berkas tidak dikenali.');
+      S=o; S.session=null; save(); location.hash='#/ringkasan'; render(); toast('Data berhasil diimpor. Silakan masuk kembali.');
+    }catch(err){ alert('Gagal mengimpor: '+err.message); }
+  };
+  r.readAsText(f);
+}
+
+/* ---------- start ---------- */
+if(!location.hash) location.hash='#/ringkasan';
+render();
+
+</script>
+</body>
+</html>
