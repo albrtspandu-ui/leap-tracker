@@ -267,6 +267,10 @@ html.busy .btn{pointer-events:none; opacity:.6}
   margin:20px 0 2px; padding-bottom:6px; border-bottom:1px solid var(--line)}
 .sech2 span{font-family:"IBM Plex Sans",sans-serif; font-size:.74rem; color:var(--muted); font-weight:400}
 .sech2 span::before{content:"· "}
+.tglrow{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:11px 18px; border-top:1px solid var(--line); background:var(--surface-2);
+  border-radius:0 0 var(--radius) var(--radius)}
+.card .tglrow + .bd{border-top:1px solid var(--line); border-radius:0}
 .modblk{margin-bottom:26px}
 .modhd{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
   padding:0 2px 10px; border-bottom:2px solid var(--navy); margin-bottom:14px}
@@ -336,6 +340,7 @@ function n1(x){ return x==null?'—':(Math.round(x*100)/100).toFixed(2); }
 function kb(n){ return n?Math.round(n/1024)+' KB':''; }
 
 /* ---------- state ---------- */
+let OPEN={};          // tugas modul mana yang sedang dibuka isinya
 let ME=null;          // profil pengguna yang sedang masuk
 let BUSY=false;
 let S=emptyState();
@@ -484,8 +489,7 @@ function readiness(sc){
 }
 function isLateCP(m,iso){
   const c=CP(m); if(!c||!iso) return false;
-  const d=iso.slice(0,10);
-  return d>c.end || d<c.start;
+  return iso.slice(0,10) > c.end;   // validasi lebih awal bukan keterlambatan
 }
 function isLateDue(due,iso){ return !!(due&&iso&&iso.slice(0,10)>due); }
 
@@ -569,7 +573,7 @@ function guard(ok){ return ok?null:'<div class="card"><div class="empty"><strong
 function viewLogin(err){
   return '<div class="login"><div class="box">'+
     '<div class="brandbig">LEAP <em>Batch 5</em></div>'+
-    '<p class="muted" style="margin:0 0 20px">Pencatatan kesiapan bulanan peserta, selama LEAP program.</p>'+
+    '<p class="muted" style="margin:0 0 20px">Pencatatan kesiapan peserta, selama program.</p>'+
     '<div class="card"><div class="bd">'+
     (err?'<div class="err">'+esc(err)+'</div>':'')+
     '<label class="f"><span>Nama pengguna</span>'+
@@ -971,11 +975,24 @@ function modTaskCard(p,md,t,vEd,sEd){
   const btns=(sEd?'<button class="btn" data-act="submod" data-t="'+t.id+'" data-p="'+p.id+'">'+(s.submitCount?'Kirim ulang':'Kirim tugas')+'</button>':'')+
     (vEd?'<button class="btn" data-act="savemodval" data-t="'+t.id+'" data-p="'+p.id+'">Simpan validasi</button>':'');
 
-  return '<div class="card" style="margin-bottom:16px">'+
-    '<div class="hd"><div><h3>'+esc(t.code)+' — '+esc(t.title)+'</h3>'+
+  const nilai=val.overall?('<strong>'+val.overall+'</strong> · '+esc(RATE[val.overall-1].label)):'<span class="muted">belum dinilai</span>';
+  const ringkas='<div class="tglrow">'+
+    '<div class="small">Nilai '+nilai+
+      ' · Dikirim '+(s.submitCount?fstamp(s.submittedAt):'<span class="muted">belum</span>')+
+      ' · Divalidasi '+(val.at?fstamp(val.at):'<span class="muted">belum</span>')+'</div>'+
+    '<button class="btn ghost sm" data-act="togtask" data-t="'+t.id+'">'+
+      (OPEN[t.id]?'Sembunyikan isi tugas':'Tampilkan isi tugas')+'</button></div>';
+
+  const header='<div class="hd"><div><h3>'+esc(t.code)+' — '+esc(t.title)+'</h3>'+
       '<div class="small muted">'+esc(md.facilitator||'')+(md.session?' · '+esc(md.session):'')+
       ' · Tenggat '+fdate(t.due)+(md.competency?' · '+esc(md.competency):'')+'</div></div>'+
-      '<div class="row">'+countPill+STATUS[st]+'</div></div>'+
+      '<div class="row">'+countPill+STATUS[st]+'</div></div>';
+
+  if(!OPEN[t.id]){
+    return '<div class="card" style="margin-bottom:12px">'+header+ringkas+'</div>';
+  }
+
+  return '<div class="card" style="margin-bottom:16px">'+header+ringkas+
     '<div class="bd">'+
       (objs?'<div class="secbox"><div class="sech">Tujuan tugas ini — peserta mampu untuk</div><ul class="small" style="margin:0; padding-left:18px">'+objs+'</ul></div>':'')+
       '<div class="sech2">Bagian A — Action <span>diisi peserta</span></div>'+(acts||'<p class="muted small">Belum ada poin action.</p>')+
@@ -1007,7 +1024,9 @@ function tabModules(p,base){
   const head='<div class="card" style="margin-bottom:16px"><div class="bd spread">'+
     '<div><div class="small muted">Tugas Modul — Bulan 1</div>'+
       '<div class="small">'+mods.length+' modul · '+all.length+' tugas</div>'+
-      '<div class="small muted">'+done+' selesai · '+wait+' menunggu validasi · '+(all.length-done-wait)+' belum dikirim</div></div>'+
+      '<div class="small muted">'+done+' selesai · '+wait+' menunggu validasi · '+(all.length-done-wait)+' belum dikirim</div>'+
+      (all.length?'<div style="margin-top:9px"><button class="btn ghost sm" data-act="togall">'+
+        (all.some(t=>OPEN[t.id])?'Tutup semua tugas':'Buka semua tugas')+'</button></div>':'')+'</div>'+
     '<div style="text-align:right"><div class="score">'+n1(sc)+'</div>'+
       '<span class="pill '+rd.cls+'">'+rd.label+'</span>'+
       '<div class="small muted" style="margin-top:4px">'+cnt+' dari '+all.length+' tugas sudah masuk perhitungan</div></div></div></div>';
@@ -1051,7 +1070,7 @@ function tabCheckpoint(p,m,base){
     '<div><div class="small muted">'+esc(c.name)+'</div>'+
       '<div class="small">Jadwal '+fdate(c.start)+' – '+fdate(c.end)+' · '+ts.length+' poin tugas · '+(over?'jadwal sudah lewat':'jadwal belum lewat')+'</div>'+
       '<div class="small muted">'+done+' selesai · '+wait+' menunggu validasi · '+(ts.length-done-wait)+' belum submit</div>'+
-      '<div class="small muted">'+(a.savedAt?('Terakhir dinilai '+fstamp(a.savedAt)+(a.late?' · di luar jadwal':'')):'Belum pernah dinilai mentor')+'</div></div>'+
+      '<div class="small muted">'+(a.savedAt?('Terakhir dinilai '+fstamp(a.savedAt)+(a.late?' · terlambat':'')):'Belum pernah dinilai mentor')+'</div></div>'+
     '<div style="text-align:right"><div class="score">'+n1(s)+'</div>'+
       '<span class="pill '+rd.cls+'">'+rd.label+'</span>'+
       '<div class="small muted" style="margin-top:4px">'+cnt+' dari '+ts.length+' poin sudah masuk perhitungan</div></div></div></div>';
@@ -1278,6 +1297,13 @@ function act(a,el){
     case 'score': {
       const grp=el.closest('.rate'); grp.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
       el.classList.add('on'); break;
+    }
+    case 'togtask': OPEN[d.t]=!OPEN[d.t]; render(); break;
+    case 'togall': {
+      const ids=allModTasks().map(t=>t.id);
+      const anyOpen=ids.some(i=>OPEN[i]);
+      ids.forEach(i=>{ OPEN[i]=!anyOpen; });
+      render(); break;
     }
     case 'submod': submitModTask(d.t,d.p); break;
     case 'savemodval': saveModValidation(d.t,d.p); break;
