@@ -411,7 +411,8 @@ async function loadAll(){
     start:String(c.start_date).slice(0,10),end:String(c.end_date).slice(0,10)}));
   (subs.data||[]).forEach(function(s){
     N.submissions[s.task_id+'|'+s.participant_id]={
-      answers:s.answers||{},evid:s.evid||{},versions:s.versions||[],
+      answers:s.answers||{},evid:s.evid||{},hist:s.versions||[],
+      draftAt:(s.answers&&s.answers.__draftAt)||null,
       submitCount:s.submit_count||0,submittedAt:s.submitted_at,validation:s.validation||null};
   });
   (ass.data||[]).forEach(function(a){
@@ -473,21 +474,27 @@ function allModTasks(){ return S.tasks.filter(t=>t.scope==='mod').sort(cmpTask);
 function tasksOf(m){ return S.tasks.filter(t=>t.scope==='cp'&&t.cp===m).sort(cmpTask); }
 const subKey=(t,p)=>t+'|'+p;
 const sub=(t,p)=>S.submissions[subKey(t,p)]||null;
-function lastVer(t,p){ const s=sub(t,p); return s&&s.versions.length?s.versions[s.versions.length-1]:null; }
 function subStatus(t,p){
-  const s=sub(t,p); if(!s) return 'belum';
-  const task=T(t);
-  if(task&&task.scope==='mod'){
-    if(!s.submitCount) return 'belum';
-    return (s.validation&&s.validation.overall)?'selesai':'menunggu';
-  }
-  if(!s.versions||!s.versions.length) return 'belum';
-  if(!s.validation) return 'menunggu';
+  const s=sub(t,p);
+  if(!s||!s.submitCount) return 'belum';
+  const v=s.validation;
+  if(!v||!valScore(T(t),v)) return 'menunggu';
+  if((v.forN||0) < s.submitCount) return 'revisi';
   return 'selesai';
 }
+function valScore(task,v){
+  if(!v) return null;
+  return (task&&task.scope==='mod')?(v.overall||null):(v.score||null);
+}
+const WAIT=st=>st==='menunggu'||st==='revisi';
 const asKey=(p,m)=>p+'|'+m;
 const assess=(p,m)=>S.assessments[asKey(p,m)]||null;
-const STATUS={belum:'<span class="pill flat">Belum submit</span>',menunggu:'<span class="pill wait">Menunggu validasi</span>',selesai:'<span class="pill done">Selesai</span>'};
+const STATUS={
+  belum:'<span class="pill flat">Belum submit</span>',
+  menunggu:'<span class="pill wait">Menunggu validasi</span>',
+  revisi:'<span class="pill wait">Revisi menunggu validasi</span>',
+  selesai:'<span class="pill done">Selesai</span>'
+};
 
 /* ---------- scoring ---------- */
 /* Batas perhitungan: tugas modul memakai tenggatnya sendiri,
@@ -495,14 +502,14 @@ const STATUS={belum:'<span class="pill flat">Belum submit</span>',menunggu:'<spa
 function deadlineOf(t){ return t.scope==='mod'?(t.due||''):(((CP(t.cp)||{}).end)||''); }
 function deadlineLabel(t){ return t.scope==='mod'?('tenggat '+fdate(t.due)):('akhir checkpoint '+fdate((CP(t.cp)||{}).end)); }
 function pastDue(t){ const d=deadlineOf(t); return !!d && today()>d; }
+function pastDueAt(t,iso){ const d=deadlineOf(t); return !!(d&&iso) && String(iso).slice(0,10)>d; }
 /* nilai tugas: sudah divalidasi -> nilai mentor;
    belum divalidasi tapi batas sudah lewat -> 1;
    belum divalidasi dan batas belum lewat -> belum ikut dihitung (null). */
 function taskScore(tid,pid){
   const t=T(tid), s=sub(tid,pid);
-  if(t&&t.scope==='mod'){
-    if(s&&s.validation&&s.validation.overall) return s.validation.overall;
-  }else if(s&&s.validation){ return s.validation.score; }
+  const v=s?valScore(t,s.validation):null;
+  if(v) return v;
   if(t&&pastDue(t)) return 1;
   return null;
 }
@@ -631,7 +638,7 @@ function pendingList(){
   const out=[];
   S.participants.forEach(function(p){
     if(r==='mentor'&&p.mentorId!==mine) return;
-    const items=S.tasks.filter(t=>subStatus(t.id,p.id)==='menunggu').sort(cmpTask);
+    const items=S.tasks.filter(t=>WAIT(subStatus(t.id,p.id))).sort(cmpTask);
     if(items.length) out.push({p:p,n:items.length,first:items[0]});
   });
   return out.sort((x,y)=>y.n-x.n||x.p.name.localeCompare(y.p.name));
@@ -902,7 +909,7 @@ function viewTasks(){
     const ts=tasksOf(m);
     const rows=ts.map(function(t){
       const done=S.participants.filter(p=>subStatus(t.id,p.id)==='selesai').length;
-      const waiting=S.participants.filter(p=>subStatus(t.id,p.id)==='menunggu').length;
+      const waiting=S.participants.filter(p=>WAIT(subStatus(t.id,p.id))).length;
       return '<tr><td><strong>'+esc(t.code)+' · '+esc(t.title)+'</strong><div class="small muted">'+esc(t.desc||'')+'</div></td>'+
         '<td class="small">'+fdate(t.due)+
           (t.sort!=null?'<div class="muted">urutan '+t.sort+'</div>':'')+'</td>'+
@@ -1003,25 +1010,33 @@ function viewParticipant(pid,tab,base){
 
 /* kartu satu tugas, dipakai di tab modul maupun checkpoint */
 function taskCard(p,t,vEd,sEd,showRubric){
-  const st=subStatus(t.id,p.id), last=lastVer(t.id,p.id), sb=sub(t.id,p.id);
+  const st=subStatus(t.id,p.id), sb=sub(t.id,p.id);
+  const last=(sb&&sb.submitCount)?sb:null;
+  const cur=(sb&&sb.answers)?sb.answers:{};
   const val=sb&&sb.validation;
   const allowFile=t.accept!=='link', allowLink=t.accept!=='file';
-  const history=sb&&sb.versions.length?sb.versions.map(v=>
-    '<div class="small muted">Submission ke-'+v.n+' · '+fstamp(v.at)+' · '+
-    (v.kind==='file'?esc(v.fileName)+' '+kb(v.size):(v.link?'<a href="'+esc(v.link)+'" target="_blank" rel="noopener">'+esc(v.link)+'</a>':'uraian teks'))+'</div>').join(''):'';
+  const history=(sb&&sb.submitCount)
+    ?('<div class="small muted">Kiriman ke-'+sb.submitCount+' · '+fstamp(sb.submittedAt)+' · '+
+       (pastDueAt(t,sb.submittedAt)?'setelah tenggat':'sebelum tenggat')+'</div>')
+    :((sb&&sb.draftAt)?('<div class="small muted">Draf tersimpan '+fstamp(sb.draftAt)+', belum dikirim ke mentor.</div>'):'');
 
   let workBlock;
   if(sEd){
-    workBlock='<label class="f"><span>Uraian pengerjaan</span><textarea data-work="'+t.id+'" placeholder="Apa yang Anda kerjakan dan hasilnya">'+esc(last?last.work||'':'')+'</textarea></label>'+
+    workBlock='<label class="f"><span>Uraian pengerjaan</span><textarea data-work="'+t.id+'" placeholder="Apa yang Anda kerjakan dan hasilnya">'+esc(cur.work||'')+'</textarea></label>'+
       '<div class="grid g2">'+
       (allowFile?'<label class="f"><span>Unggah evidence</span><input type="file" data-up="'+t.id+'"></label>':'')+
-      (allowLink?'<label class="f"><span>Atau tautan evidence</span><input type="text" data-lk="'+t.id+'" placeholder="https://..."></label>':'')+
+      (allowLink?'<label class="f"><span>Atau tautan evidence</span><input type="text" data-lk="'+t.id+'" value="'+esc(cur.link||'')+'" placeholder="https://..."></label>':'')+
       '</div>'+history+
-      '<button class="btn" data-act="submit" data-t="'+t.id+'" data-p="'+p.id+'" style="margin-top:8px">'+(last?'Kirim ulang':'Kirim pengerjaan')+'</button>'+
-      (last?'<div class="small muted" style="margin-top:6px">Kiriman ulang akan menunggu validasi mentor lagi.</div>':'');
+      (cur.fileName?('<div class="small muted">Berkas terakhir: '+esc(cur.fileName)+' '+kb(cur.size)+'</div>'):'')+
+      '<div class="row" style="margin-top:8px">'+
+        '<button class="btn ghost" data-act="drafcp" data-t="'+t.id+'" data-p="'+p.id+'">Simpan draf</button>'+
+        '<button class="btn" data-act="submit" data-t="'+t.id+'" data-p="'+p.id+'">'+(last?'Kirim ulang':'Kirim pengerjaan')+'</button></div>'+
+      (last?'<div class="small muted" style="margin-top:6px">Kiriman ulang boleh kapan saja. Nilai lama tetap berlaku sampai mentor menilai ulang.</div>':'');
   }else{
     workBlock=last
-      ?'<p class="small" style="margin-top:0">'+(last.work?esc(last.work):'<span class="muted">Peserta tidak menulis uraian.</span>')+'</p>'+history
+      ?('<p class="small" style="margin-top:0">'+(cur.work?esc(cur.work):'<span class="muted">Peserta tidak menulis uraian.</span>')+'</p>'+history+
+        ((cur.fileName||cur.link)?('<div class="small muted">'+esc(cur.fileName||'')+' '+
+          (cur.link?('<a href="'+esc(cur.link)+'" target="_blank" rel="noopener">'+esc(cur.link)+'</a>'):'')+'</div>'):''))
       :'<p class="small muted" style="margin-top:0">Peserta belum mengirim apa pun untuk tugas ini.</p>';
   }
 
@@ -1037,6 +1052,7 @@ function taskCard(p,t,vEd,sEd,showRubric){
   const countPill=val?'':(over?'<span class="pill belum">Dihitung 1</span>':'<span class="pill flat">Belum dihitung</span>');
   let valNote;
   if(val) valNote='Divalidasi '+fstamp(val.at)+' oleh '+esc(val.by)+(val.late?' <span class="pill late">Terlambat</span>':'');
+  else if(last&&st==='revisi') valNote='Nilai lama masih berlaku. Kiriman terbaru belum dinilai ulang mentor.';
   else if(last) valNote=over?('Belum divalidasi dan '+deadlineLabel(t)+' sudah lewat, jadi dihitung bernilai 1.')
                            :('Belum divalidasi. Belum ikut dihitung karena '+deadlineLabel(t)+' belum lewat.');
   else valNote=over?('Belum dikerjakan dan '+deadlineLabel(t)+' sudah lewat, jadi dihitung bernilai 1.')
@@ -1058,7 +1074,38 @@ function taskCard(p,t,vEd,sEd,showRubric){
           '<textarea data-vnote="'+t.id+'" '+(vEd&&last?'':'disabled')+'>'+esc(val?val.note:'')+'</textarea></label>'+
         '<div class="small muted">'+valNote+'</div>'+
       '</div>'+
-    '</div></div>';
+    '</div>'+(sb?histBlock(t,sb):'')+'</div>';
+}
+
+/* ---------- riwayat kiriman ---------- */
+function histBlock(t,s){
+  const h=(s.hist||[]).slice().reverse();
+  if(!h.length) return '';
+  const bar=function(lbl){ return '<div class="tglrow"><div class="small muted">Riwayat '+h.length+' kiriman tersimpan</div>'+
+    '<button class="btn ghost sm" data-act="toghist" data-t="'+t.id+'">'+lbl+'</button></div>'; };
+  if(!OPEN['h:'+t.id]) return bar('Tampilkan riwayat');
+  const rows=h.map(function(e){
+    const v=e.validation, sc=v?(t.scope==='mod'?v.overall:v.score):null;
+    const isi=(t.scope==='mod')
+      ? ((t.act||[]).map(x=>((e.answers||{})[x.id])?('<div class="small"><strong>'+esc(x.label)+'.</strong> '+esc(e.answers[x.id])+'</div>'):'').join('')+
+         (t.ev||[]).map(function(x){
+           const c=(e.evid||{})[x.id]||{};
+           if(!c.on&&!c.link&&!c.note&&!c.fileName) return '';
+           return '<div class="small muted">'+esc(x.label)+': '+(c.on?'dilampirkan':'belum dicentang')+
+             (c.fileName?(' · '+esc(c.fileName)):'')+(c.link?(' · '+esc(c.link)):'')+(c.note?(' · '+esc(c.note)):'')+'</div>';
+         }).join(''))
+      : ('<div class="small">'+(e.work?esc(e.work):'<span class="muted">tanpa uraian</span>')+'</div>'+
+         ((e.fileName||e.link)?('<div class="small muted">'+esc(e.fileName||'')+' '+esc(e.link||'')+'</div>'):''));
+    const nilai=sc
+      ? (sc+' · '+esc(RATE[sc-1].label)+' · dinilai '+fstamp(v.at)+' oleh '+esc(v.by||'—')+
+         ((v.note||v.summary)?('<div class="small muted">'+esc(v.note||v.summary)+'</div>'):''))
+      : '<span class="muted">tidak sempat dinilai sebelum ada kiriman berikutnya</span>';
+    return '<div class="item"><div class="spread"><div class="lbl">Kiriman ke-'+e.n+' · '+fstamp(e.at)+'</div>'+
+      (e.late?'<span class="pill late">Setelah tenggat</span>':'<span class="pill done">Sebelum tenggat</span>')+'</div>'+
+      (isi||'<div class="small muted">tidak ada isian</div>')+
+      '<div class="small" style="margin-top:6px">Nilai: '+nilai+'</div></div>';
+  }).join('');
+  return bar('Sembunyikan riwayat')+'<div class="bd" style="background:var(--surface-2)">'+rows+'</div>';
 }
 
 /* ---------- kartu tugas modul: Bagian A / B / C seperti template Excel ---------- */
@@ -1102,12 +1149,19 @@ function modTaskCard(p,md,t,vEd,sEd){
     '<div class="small">'+esc((t.rubric||{})[v]||'—')+'</div></div>').join('');
   const ovRate=RATE.map(r=>'<button data-act="score" data-v="'+r.v+'" class="'+(val.overall===r.v?'on':'')+'" '+(vEd?'':'disabled')+'>'+r.v+' · '+r.label+'</button>').join('');
 
-  const subInfo=s.submitCount?('Submission ke-'+s.submitCount+' · '+fstamp(s.submittedAt)):'Belum pernah dikirim peserta.';
-  const valInfo=val.at?('Divalidasi '+fstamp(val.at)+' oleh '+esc(val.by||'—')+(val.late?' <span class="pill late">Terlambat</span>':''))
-    :(over?('Belum divalidasi dan tenggat '+fdate(t.due)+' sudah lewat, jadi dihitung bernilai 1.')
-          :('Belum divalidasi. Belum ikut dihitung karena tenggat '+fdate(t.due)+' belum lewat.'));
+  const subInfo=s.submitCount
+    ?('Kiriman ke-'+s.submitCount+' · '+fstamp(s.submittedAt)+' · '+(pastDueAt(t,s.submittedAt)?'setelah tenggat':'sebelum tenggat'))
+    :(s.draftAt?('Draf tersimpan '+fstamp(s.draftAt)+', belum dikirim ke mentor.'):'Belum pernah dikirim peserta.');
+  let valInfo;
+  if(val.at&&st==='revisi') valInfo='Nilai '+val.overall+' berasal dari kiriman ke-'+(val.forN||'?')+
+    '. Kiriman ke-'+s.submitCount+' belum dinilai ulang, jadi nilai lama masih berlaku.';
+  else if(val.at) valInfo='Divalidasi '+fstamp(val.at)+' oleh '+esc(val.by||'—')+
+    ' untuk kiriman ke-'+(val.forN||s.submitCount)+(val.late?' <span class="pill late">Terlambat</span>':'');
+  else valInfo=over?('Belum divalidasi dan tenggat '+fdate(t.due)+' sudah lewat, jadi dihitung bernilai 1.')
+                  :('Belum divalidasi. Belum ikut dihitung karena tenggat '+fdate(t.due)+' belum lewat.');
 
-  const btns=(sEd?'<button class="btn" data-act="submod" data-t="'+t.id+'" data-p="'+p.id+'">'+(s.submitCount?'Kirim ulang':'Kirim tugas')+'</button>':'')+
+  const btns=(sEd?'<button class="btn ghost" data-act="drafmod" data-t="'+t.id+'" data-p="'+p.id+'">Simpan draf</button>'+
+      '<button class="btn" data-act="submod" data-t="'+t.id+'" data-p="'+p.id+'">'+(s.submitCount?'Kirim ulang':'Kirim tugas')+'</button>':'')+
     (vEd?'<button class="btn" data-act="savemodval" data-t="'+t.id+'" data-p="'+p.id+'">Simpan validasi</button>':'');
 
   const nilai=val.overall?('<strong>'+val.overall+'</strong> · '+esc(RATE[val.overall-1].label)):'<span class="muted">belum dinilai</span>';
@@ -1144,7 +1198,8 @@ function modTaskCard(p,md,t,vEd,sEd){
         '<textarea data-mfu="'+t.id+'" '+(vEd?'':'disabled')+'>'+esc(val.follow||'')+'</textarea></label>'+
       '<div class="small muted">'+valInfo+'</div>'+
     '</div>'+
-    (btns?'<div class="savebar"><span class="small muted">Peserta mengisi Bagian A dan B, mentor mengisi Bagian C dan kesimpulan.</span><div class="row">'+btns+'</div></div>':'')+
+    histBlock(t,s)+
+    (btns?'<div class="savebar"><span class="small muted">Peserta boleh mengirim ulang kapan saja. Nilai lama tetap berlaku sampai mentor menilai kiriman terbaru.</span><div class="row">'+btns+'</div></div>':'')+
   '</div>';
 }
 
@@ -1154,7 +1209,7 @@ function tabModules(p,base){
   const sc=modScore(p.id), rd=readiness(sc);
   const all=allModTasks();
   const done=all.filter(t=>subStatus(t.id,p.id)==='selesai').length;
-  const wait=all.filter(t=>subStatus(t.id,p.id)==='menunggu').length;
+  const wait=all.filter(t=>WAIT(subStatus(t.id,p.id))).length;
   const cnt=counted(all,p.id);
   const head='<div class="card" style="margin-bottom:16px"><div class="bd spread">'+
     '<div><div class="small muted">Tugas Modul — Bulan 1</div>'+
@@ -1172,6 +1227,7 @@ function tabModules(p,base){
     '<li>Tugas tanpa evidence dianggap belum dikumpulkan.</li>'+
     '<li>Kirim minimal 3 hari kerja sebelum tenggat agar mentor sempat memvalidasi.</li>'+
     '<li>Tugas yang sudah divalidasi menjadi bahan bawaan ke Checkpoint 1. Tidak ada materi baru yang perlu dibuat untuk checkpoint.</li>'+
+    '<li>Anda boleh memperbaiki dan mengirim ulang kapan saja, termasuk setelah dinilai mentor. Setiap kiriman tersimpan sebagai riwayat, dan nilai yang berlaku adalah validasi terakhir dari mentor.</li>'+
     '</ul></div></div>';
   if(!mods.length){
     return head+'<div class="card"><div class="empty"><strong>Belum ada modul</strong>'+
@@ -1197,7 +1253,7 @@ function tabCheckpoint(p,m,base){
   const s=cpScore(p.id,m), rd=readiness(s);
   const ts=tasksOf(m);
   const done=ts.filter(t=>subStatus(t.id,p.id)==='selesai').length;
-  const wait=ts.filter(t=>subStatus(t.id,p.id)==='menunggu').length;
+  const wait=ts.filter(t=>WAIT(subStatus(t.id,p.id))).length;
   const cnt=counted(ts,p.id);
   const over=today()>c.end;
 
@@ -1251,7 +1307,7 @@ function tabSummary(p,base){
     const a=assess(p.id,isMod?'mod':Number(c.key.replace('cp','')));
     const rd=readiness(c.score);
     const done=ts.filter(t=>subStatus(t.id,p.id)==='selesai').length;
-    const wait=ts.filter(t=>subStatus(t.id,p.id)==='menunggu').length;
+    const wait=ts.filter(t=>WAIT(subStatus(t.id,p.id))).length;
     return '<div class="card"><div class="bd">'+
       '<div class="small muted">'+esc(isMod?'Tugas Modul':CP(Number(c.key.replace('cp',''))).name)+'</div>'+
       '<div class="score">'+n1(c.score)+'</div>'+
@@ -1448,15 +1504,18 @@ function act(a,el){
       el.classList.add('on'); break;
     }
     case 'togtask': OPEN[d.t]=!OPEN[d.t]; render(); break;
+    case 'toghist': OPEN['h:'+d.t]=!OPEN['h:'+d.t]; render(); break;
+    case 'drafmod': saveModTask(d.t,d.p,false); break;
+    case 'drafcp': saveCPTask(d.t,d.p,false); break;
     case 'togall': {
       const ids=allModTasks().map(t=>t.id);
       const anyOpen=ids.some(i=>OPEN[i]);
       ids.forEach(i=>{ OPEN[i]=!anyOpen; });
       render(); break;
     }
-    case 'submod': submitModTask(d.t,d.p); break;
+    case 'submod': saveModTask(d.t,d.p,true); break;
     case 'savemodval': saveModValidation(d.t,d.p); break;
-    case 'submit': doSubmitCP(d.t,d.p); break;
+    case 'submit': saveCPTask(d.t,d.p,true); break;
     case 'savecp': saveCPValidations(d.p,Number(d.m)); break;
     case 'savepillars': savePillars(d.p,Number(d.m)); break;
 
@@ -1794,40 +1853,54 @@ function savePillars(pid,m){
 }
 
 /* ---------- tugas modul: kiriman peserta ---------- */
-function submitModTask(tid,pid){
-  const t=T(tid);
-  const prev=S.submissions[subKey(tid,pid)]||{answers:{},evid:{},submitCount:0};
+function readModForm(t,prev){
   const answers={}, evid={};
-  (t.act||[]).forEach(function(a){
-    const el=document.querySelector('[data-ans="'+tid+'|'+a.id+'"]');
-    answers[a.id]=el?el.value.trim():(prev.answers[a.id]||'');
+  (t.act||[]).forEach(function(x){
+    const el=document.querySelector('[data-ans="'+t.id+'|'+x.id+'"]');
+    answers[x.id]=el?el.value.trim():((prev.answers||{})[x.id]||'');
   });
-  (t.ev||[]).forEach(function(e){
-    const cur=prev.evid[e.id]||{};
-    const cb=document.querySelector('[data-evc="'+tid+'|'+e.id+'"]');
-    const lk=document.querySelector('[data-evl="'+tid+'|'+e.id+'"]');
-    const nt=document.querySelector('[data-evn="'+tid+'|'+e.id+'"]');
-    const fi=document.querySelector('[data-evf="'+tid+'|'+e.id+'"]');
+  (t.ev||[]).forEach(function(x){
+    const c=(prev.evid||{})[x.id]||{};
+    const cb=document.querySelector('[data-evc="'+t.id+'|'+x.id+'"]');
+    const lk=document.querySelector('[data-evl="'+t.id+'|'+x.id+'"]');
+    const nt=document.querySelector('[data-evn="'+t.id+'|'+x.id+'"]');
+    const fi=document.querySelector('[data-evf="'+t.id+'|'+x.id+'"]');
     const file=fi&&fi.files&&fi.files[0]?fi.files[0]:null;
-    evid[e.id]={
-      on:cb?cb.checked:!!cur.on,
-      link:lk?lk.value.trim():(cur.link||''),
-      note:nt?nt.value.trim():(cur.note||''),
-      fileName:file?file.name:(cur.fileName||''),
-      size:file?file.size:(cur.size||0)
+    evid[x.id]={
+      on:cb?cb.checked:!!c.on,
+      link:lk?lk.value.trim():(c.link||''),
+      note:nt?nt.value.trim():(c.note||''),
+      fileName:file?file.name:(c.fileName||''),
+      size:file?file.size:(c.size||0)
     };
   });
-  const ada=Object.keys(answers).some(k=>answers[k])||
-            Object.keys(evid).some(k=>evid[k].on||evid[k].link||evid[k].note||evid[k].fileName);
-  if(!ada){ alert('Isi minimal satu jawaban Bagian A atau satu evidence Bagian B sebelum mengirim.'); return; }
-  tx(async function(){
-    const {error}=await SB.from('submissions').upsert({
-      task_id:tid, participant_id:pid, answers:answers, evid:evid,
-      submit_count:(prev.submitCount||0)+1, submitted_at:new Date().toISOString(), validation:null
-    },{onConflict:'task_id,participant_id'});
-    if(error) throw error;
-  },'Tugas terkirim. Menunggu validasi mentor.');
+  return {answers:answers,evid:evid};
 }
+function saveModTask(tid,pid,kirim){
+  const t=T(tid);
+  const prev=S.submissions[subKey(tid,pid)]||{answers:{},evid:{},hist:[],submitCount:0};
+  const f=readModForm(t,prev);
+  const now=new Date().toISOString();
+  if(kirim){
+    const ada=Object.keys(f.answers).some(k=>f.answers[k])||
+      Object.keys(f.evid).some(k=>f.evid[k].on||f.evid[k].link||f.evid[k].note||f.evid[k].fileName);
+    if(!ada){ alert('Isi minimal satu jawaban Bagian A atau satu evidence Bagian B sebelum mengirim.'); return; }
+  }
+  const answers=Object.assign({},f.answers);
+  if(!kirim) answers.__draftAt=now; else delete answers.__draftAt;
+  const row={task_id:tid, participant_id:pid, answers:answers, evid:f.evid};
+  if(kirim){
+    const n=(prev.submitCount||0)+1;
+    const hist=(prev.hist||[]).slice();
+    hist.push({n:n, at:now, late:pastDueAt(t,now), answers:f.answers, evid:f.evid, validation:null});
+    row.versions=hist; row.submit_count=n; row.submitted_at=now;
+  }
+  tx(async function(){
+    const {error}=await SB.from('submissions').upsert(row,{onConflict:'task_id,participant_id'});
+    if(error) throw error;
+  }, kirim?'Tugas terkirim. Menunggu validasi mentor.':'Draf tersimpan. Belum dikirim ke mentor.');
+}
+
 function saveModValidation(tid,pid){
   const t=T(tid);
   const cur=S.submissions[subKey(tid,pid)];
@@ -1847,63 +1920,73 @@ function saveModValidation(tid,pid){
   const validation={
     checks:checks, overall:ovOn?Number(ovOn.dataset.v):null,
     summary:sum?sum.value.trim():'', follow:fu?fu.value.trim():'',
-    by:ME.name, at:now, late:isLateDue(t.due,now)
+    by:ME.name, at:now, late:isLateDue(t.due,now), forN:cur.submitCount
   };
+  const hist=(cur.hist||[]).map(e=>e.n===cur.submitCount?Object.assign({},e,{validation:validation}):e);
   tx(async function(){
-    const {error}=await SB.from('submissions').update({validation:validation})
+    const {error}=await SB.from('submissions').update({validation:validation,versions:hist})
       .eq('task_id',tid).eq('participant_id',pid);
     if(error) throw error;
-  }, validation.overall?'Validasi tersimpan.':'Tersimpan. Rating keseluruhan belum dipilih, jadi tugas ini belum terhitung selesai.');
+  }, validation.overall?'Validasi tersimpan untuk kiriman ke-'+cur.submitCount+'.':'Tersimpan. Rating keseluruhan belum dipilih, jadi tugas ini belum terhitung selesai.');
 }
 
 /* ---------- tugas checkpoint ---------- */
-function doSubmitCP(tid,pid){
+function saveCPTask(tid,pid,kirim){
+  const t=T(tid);
+  const prev=S.submissions[subKey(tid,pid)]||{answers:{},hist:[],submitCount:0};
+  const c=prev.answers||{};
   const fi=document.querySelector('[data-up="'+tid+'"]');
   const li=document.querySelector('[data-lk="'+tid+'"]');
   const wk=document.querySelector('[data-work="'+tid+'"]');
   const file=fi&&fi.files&&fi.files[0]?fi.files[0]:null;
-  const link=li?li.value.trim():'';
-  const work=wk?wk.value.trim():'';
-  if(!file&&!link&&!work){ alert('Isi uraian pengerjaan, atau lampirkan berkas atau tautan.'); return; }
-  const cur=S.submissions[subKey(tid,pid)]||{versions:[]};
-  const versions=(cur.versions||[]).slice();
-  const prev=versions.length?versions[versions.length-1]:null;
-  versions.push({
-    n:versions.length+1, work:work,
-    kind:file?'file':(link?'link':'text'),
-    fileName:file?file.name:(prev&&!link?prev.fileName:''),
-    size:file?file.size:0,
-    link:link||(prev&&!file?prev.link:''),
-    at:new Date().toISOString()
-  });
+  const cur={
+    work: wk?wk.value.trim():(c.work||''),
+    link: li?li.value.trim():(c.link||''),
+    fileName: file?file.name:(c.fileName||''),
+    size: file?file.size:(c.size||0)
+  };
+  if(kirim && !cur.work && !cur.link && !cur.fileName){
+    alert('Isi uraian pengerjaan, atau lampirkan berkas atau tautan.'); return;
+  }
+  const now=new Date().toISOString();
+  const answers=Object.assign({},cur);
+  if(!kirim) answers.__draftAt=now;
+  const row={task_id:tid, participant_id:pid, answers:answers};
+  if(kirim){
+    const n=(prev.submitCount||0)+1;
+    const hist=(prev.hist||[]).slice();
+    hist.push({n:n, at:now, late:pastDueAt(t,now), work:cur.work, link:cur.link,
+      fileName:cur.fileName, size:cur.size, validation:null});
+    row.versions=hist; row.submit_count=n; row.submitted_at=now;
+  }
   tx(async function(){
-    const {error}=await SB.from('submissions').upsert({
-      task_id:tid, participant_id:pid, versions:versions,
-      submit_count:versions.length, submitted_at:new Date().toISOString(), validation:null
-    },{onConflict:'task_id,participant_id'});
+    const {error}=await SB.from('submissions').upsert(row,{onConflict:'task_id,participant_id'});
     if(error) throw error;
-  },'Pengerjaan terkirim. Menunggu validasi mentor.');
+  }, kirim?'Pengerjaan terkirim. Menunggu validasi mentor.':'Draf tersimpan. Belum dikirim ke mentor.');
 }
+
 function saveCPValidations(pid,m){
   const now=new Date().toISOString();
   const updates=[];
   tasksOf(m).forEach(function(t){
     const cur=S.submissions[subKey(t.id,pid)];
-    if(!cur||!cur.versions||!cur.versions.length) return;
+    if(!cur||!cur.submitCount) return;
     const grp=document.querySelector('[data-rate="'+t.id+'"]');
     const on=grp?grp.querySelector('button.on'):null;
     const noteEl=document.querySelector('[data-vnote="'+t.id+'"]');
     const note=noteEl?noteEl.value.trim():'';
     if(!on&&!cur.validation) return;
-    updates.push({tid:t.id,validation:{
+    const v={
       score:on?Number(on.dataset.v):cur.validation.score,
-      note:note, at:now, by:ME.name, late:isLateCP(m,now)
-    }});
+      note:note, at:now, by:ME.name, late:isLateCP(m,now), forN:cur.submitCount
+    };
+    const hist=(cur.hist||[]).map(e=>e.n===cur.submitCount?Object.assign({},e,{validation:v}):e);
+    updates.push({tid:t.id,validation:v,hist:hist});
   });
   const sumEl=document.getElementById('cp_sum'), fuEl=document.getElementById('cp_follow');
   tx(async function(){
     for(const u of updates){
-      const {error}=await SB.from('submissions').update({validation:u.validation})
+      const {error}=await SB.from('submissions').update({validation:u.validation,versions:u.hist})
         .eq('task_id',u.tid).eq('participant_id',pid);
       if(error) throw error;
     }
