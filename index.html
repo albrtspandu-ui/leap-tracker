@@ -405,6 +405,7 @@ async function loadAll(){
     session:m.session||'',competency:m.competency||'',order:m.order_no}));
   N.tasks=(tsk.data||[]).map(t=>({id:t.id,scope:t.scope,moduleId:t.module_id,cp:t.cp,code:t.code,title:t.title,
     desc:t.description||'',due:t.due?String(t.due).slice(0,10):'',accept:t.accept||'both',
+    sort:(t.sort==null?null:Number(t.sort)),
     obj:t.obj||[],act:t.act||[],ev:t.ev||[],chk:t.chk||[],rubric:t.rubric||{}}));
   N.checkpoints=(cps.data||[]).map(c=>({m:c.m,name:c.name,
     start:String(c.start_date).slice(0,10),end:String(c.end_date).slice(0,10)}));
@@ -450,11 +451,26 @@ const MOD=id=>S.modules.find(x=>x.id===id);
 const CP=m=>S.checkpoints.find(c=>c.m===m);
 function canValidate(pid){ const r=role(); if(r==='admin') return true; if(r==='mentor'){ const p=P(pid); return !!p&&p.mentorId===myMentorId(); } return false; }
 function canSubmit(pid){ const r=role(); return r==='admin'||(r==='peserta'&&myPid()===pid); }
-const sortCode=(a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true});
+/* Urutan tugas: nomor Urutan dari admin lebih dulu; kalau kosong,
+   jatuh ke tenggat, lalu kelompoknya, lalu kodenya. */
+function grpRank(t){
+  if(t.scope==='cp') return 1000+(t.cp||0);
+  const m=MOD(t.moduleId);
+  return m?(m.order||0):999;
+}
+function cmpTask(a,b){
+  const sa=(a.sort==null?1e9:a.sort), sb=(b.sort==null?1e9:b.sort);
+  if(sa!==sb) return sa-sb;
+  const da=a.due||'9999-12-31', db=b.due||'9999-12-31';
+  if(da!==db) return da<db?-1:1;
+  const ga=grpRank(a), gb=grpRank(b);
+  if(ga!==gb) return ga-gb;
+  return String(a.code).localeCompare(String(b.code),undefined,{numeric:true});
+}
 function modulesSorted(){ return S.modules.slice().sort((a,b)=>(a.order||0)-(b.order||0)||a.name.localeCompare(b.name)); }
-function modTasks(mid){ return S.tasks.filter(t=>t.scope==='mod'&&t.moduleId===mid).sort(sortCode); }
-function allModTasks(){ return S.tasks.filter(t=>t.scope==='mod'); }
-function tasksOf(m){ return S.tasks.filter(t=>t.scope==='cp'&&t.cp===m).sort(sortCode); }
+function modTasks(mid){ return S.tasks.filter(t=>t.scope==='mod'&&t.moduleId===mid).sort(cmpTask); }
+function allModTasks(){ return S.tasks.filter(t=>t.scope==='mod').sort(cmpTask); }
+function tasksOf(m){ return S.tasks.filter(t=>t.scope==='cp'&&t.cp===m).sort(cmpTask); }
 const subKey=(t,p)=>t+'|'+p;
 const sub=(t,p)=>S.submissions[subKey(t,p)]||null;
 function lastVer(t,p){ const s=sub(t,p); return s&&s.versions.length?s.versions[s.versions.length-1]:null; }
@@ -615,7 +631,7 @@ function pendingList(){
   const out=[];
   S.participants.forEach(function(p){
     if(r==='mentor'&&p.mentorId!==mine) return;
-    const items=S.tasks.filter(t=>subStatus(t.id,p.id)==='menunggu');
+    const items=S.tasks.filter(t=>subStatus(t.id,p.id)==='menunggu').sort(cmpTask);
     if(items.length) out.push({p:p,n:items.length,first:items[0]});
   });
   return out.sort((x,y)=>y.n-x.n||x.p.name.localeCompare(y.p.name));
@@ -838,14 +854,16 @@ function viewModules(){
       '<div class="small muted">'+esc(TRACKS[md.track]||'')+(md.facilitator?' · '+esc(md.facilitator):'')+'</div>'+
       (md.competency?'<div class="small muted">'+esc(md.competency)+'</div>':'')+'</td>'+
       '<td class="small">'+esc(md.session||'—')+'</td>'+
-      '<td class="small">'+(t?fdate(t.due):'—')+'</td>'+
+      '<td class="small">'+(t?fdate(t.due):'—')+
+        (t&&t.sort!=null?'<div class="muted">urutan '+t.sort+'</div>':'')+'</td>'+
       '<td class="small">'+(t?((t.obj||[]).length+' tujuan · '+(t.act||[]).length+' poin action<br>'+(t.ev||[]).length+' evidence · '+(t.chk||[]).length+' cek mentor'):'tugas belum dibuat')+'</td>'+
       '<td class="row"><button class="btn ghost sm" data-act="mdedit" data-id="'+md.id+'">Ubah</button>'+
       '<button class="btn ghost sm" data-act="mddel" data-id="'+md.id+'">Hapus</button></td></tr>';
   }).join('');
   const trackopt=Object.keys(TRACKS).map(k=>'<option value="'+k+'">'+esc(TRACKS[k])+'</option>').join('');
   return '<div class="pagehead spread"><div><h1>Modul &amp; tugas</h1>'+
-    '<p>Satu modul berisi satu lembar tugas dengan susunan Bagian A Action, Bagian B Evidence, dan Bagian C Validasi Mentor, mengikuti template Excel Bulan 1. Rubrik 1–3 dipakai mentor saat memberi rating keseluruhan.</p></div>'+
+    '<p>Satu modul berisi satu lembar tugas dengan susunan Bagian A Action, Bagian B Evidence, dan Bagian C Validasi Mentor, mengikuti template Excel Bulan 1. Rubrik 1–3 dipakai mentor saat memberi rating keseluruhan. '+
+    'Urutan tampil tugas diatur lewat kolom Urutan tampil pada formulir; kalau dikosongkan, urutannya mengikuti tenggat lalu urutan modul.</p></div>'+
     '<button class="btn" data-act="mdnew">Tambah modul</button></div>'+
     '<div class="card" style="margin-bottom:16px"><div class="bd tight"><div class="tscroll"><table>'+
     '<thead><tr><th>Modul</th><th>Tanggal sesi</th><th>Tenggat tugas</th><th>Isi lembar tugas</th><th></th></tr></thead>'+
@@ -862,6 +880,7 @@ function viewModules(){
         '<label class="f"><span>Urutan tampil</span><input type="number" id="md_order" value="1"></label>'+
         '<label class="f"><span>Kode tugas</span><input type="text" id="mt_code" placeholder="TUGAS 9"></label>'+
         '<label class="f"><span>Tenggat pengumpulan</span><input type="date" id="mt_due"></label>'+
+        '<label class="f"><span>Urutan tampil</span><input type="number" id="mt_sort" placeholder="kosongkan untuk otomatis"></label>'+
       '</div>'+
       '<label class="f"><span>Judul lembar tugas</span><input type="text" id="mt_title"></label>'+
       '<label class="f"><span>Tujuan tugas — satu per baris</span><textarea id="mt_obj" style="min-height:90px"></textarea></label>'+
@@ -885,7 +904,8 @@ function viewTasks(){
       const done=S.participants.filter(p=>subStatus(t.id,p.id)==='selesai').length;
       const waiting=S.participants.filter(p=>subStatus(t.id,p.id)==='menunggu').length;
       return '<tr><td><strong>'+esc(t.code)+' · '+esc(t.title)+'</strong><div class="small muted">'+esc(t.desc||'')+'</div></td>'+
-        '<td class="small">'+fdate(t.due)+'</td>'+
+        '<td class="small">'+fdate(t.due)+
+          (t.sort!=null?'<div class="muted">urutan '+t.sort+'</div>':'')+'</td>'+
         '<td class="small">'+({file:'Berkas',link:'Tautan',both:'Berkas atau tautan'})[t.accept]+'</td>'+
         '<td class="small">'+done+' selesai · '+waiting+' menunggu</td>'+
         '<td class="row"><button class="btn ghost sm" data-act="ted" data-id="'+t.id+'">Ubah</button>'+
@@ -900,7 +920,8 @@ function viewTasks(){
   }).join('');
   const cpopt=MONTHS.map(m=>'<option value="'+m+'">'+esc(CP(m).name)+'</option>').join('');
   return '<div class="pagehead"><h1>Poin tugas checkpoint</h1>'+
-    '<p>Poin tugas inilah yang dikerjakan peserta dan dinilai mentor di dalam tiap checkpoint. Nilai checkpoint adalah rata-rata nilai seluruh poin di checkpoint tersebut.</p></div>'+
+    '<p>Poin tugas inilah yang dikerjakan peserta dan dinilai mentor di dalam tiap checkpoint. Nilai checkpoint adalah rata-rata nilai seluruh poin di checkpoint tersebut. '+
+    'Isi kolom Urutan tampil kalau Anda ingin menentukan sendiri susunannya; kalau dikosongkan, urutannya mengikuti tenggat.</p></div>'+
     blocks+
     '<div class="card" id="tform" style="display:none"><div class="hd"><h3 id="tformtitle">Tambah poin tugas</h3></div>'+
     '<div class="bd"><input type="hidden" id="tf_id">'+
@@ -909,6 +930,7 @@ function viewTasks(){
         '<label class="f"><span>Nama poin tugas</span><input type="text" id="tf_title"></label>'+
         '<label class="f"><span>Checkpoint</span><select id="tf_cp">'+cpopt+'</select></label>'+
         '<label class="f"><span>Tenggat kiriman</span><input type="date" id="tf_due"></label>'+
+        '<label class="f"><span>Urutan tampil</span><input type="number" id="tf_sort" placeholder="kosongkan untuk otomatis"></label>'+
         '<label class="f"><span>Bentuk evidence</span><select id="tf_accept">'+
           '<option value="both">Berkas atau tautan</option><option value="file">Berkas saja</option><option value="link">Tautan saja</option></select></label>'+
       '</div>'+
@@ -1277,7 +1299,7 @@ function viewPesertaHome(){
       '<div class="small muted">'+counted(ts,p.id)+' masuk perhitungan</div>'+
       '<div style="margin-top:8px"><a class="btn ghost sm" href="#/cp-saya/'+c.key+'">Buka</a></div></div></div>';
   }).join('');
-  const pending=S.tasks.filter(t=>subStatus(t.id,p.id)==='belum');
+  const pending=S.tasks.filter(t=>subStatus(t.id,p.id)==='belum').sort(cmpTask);
   const link=t=>'#/cp-saya/'+(t.scope==='mod'?'mod':'cp'+t.cp);
   const where=t=>t.scope==='mod'?('Modul '+esc((MOD(t.moduleId)||{}).name||'')):('Checkpoint '+t.cp);
   return '<div class="pagehead"><h1>Halo, '+esc(p.name.split(' ')[0])+'</h1>'+
@@ -1611,6 +1633,7 @@ function openMdForm(id){
   document.getElementById('mt_code').value=t?t.code:('TUGAS '+(S.modules.length+1));
   document.getElementById('mt_title').value=t?t.title:(m?m.name:'');
   document.getElementById('mt_due').value=t?(t.due||''):'';
+  document.getElementById('mt_sort').value=(t&&t.sort!=null)?t.sort:'';
   document.getElementById('mt_obj').value=t?(t.obj||[]).join('\n'):'';
   document.getElementById('mt_act').value=t?(t.act||[]).map(a=>a.guide?(a.label+' | '+a.guide):a.label).join('\n'):'';
   document.getElementById('mt_ev').value=t?(t.ev||[]).map(e=>e.label).join('\n'):'';
@@ -1639,6 +1662,7 @@ function saveModule(){
     code:document.getElementById('mt_code').value.trim()||('TUGAS '+mo.order_no),
     title:document.getElementById('mt_title').value.trim()||mo.name,
     due:document.getElementById('mt_due').value||null,
+    sort:document.getElementById('mt_sort').value===''?null:Number(document.getElementById('mt_sort').value),
     obj:lines('mt_obj'),
     act:lines('mt_act').map(function(l,i){
       const k=l.indexOf('|');
@@ -1686,6 +1710,7 @@ function openTForm(id,m){
   document.getElementById('tf_title').value=t?t.title:'';
   document.getElementById('tf_cp').value=t?t.cp:(m||1);
   document.getElementById('tf_due').value=t?t.due:'';
+  document.getElementById('tf_sort').value=(t&&t.sort!=null)?t.sort:'';
   document.getElementById('tf_accept').value=t?t.accept:'both';
   document.getElementById('tf_desc').value=t?(t.desc||''):'';
   f.scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -1698,6 +1723,7 @@ function saveTask(){
     title:document.getElementById('tf_title').value.trim(),
     cp:Number(document.getElementById('tf_cp').value),
     due:document.getElementById('tf_due').value||null,
+    sort:document.getElementById('tf_sort').value===''?null:Number(document.getElementById('tf_sort').value),
     accept:document.getElementById('tf_accept').value,
     description:document.getElementById('tf_desc').value.trim()
   };
