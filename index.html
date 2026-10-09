@@ -98,9 +98,9 @@ button,input,select,textarea{font:inherit; color:inherit}
   padding-top:calc(10px + env(safe-area-inset-top,0px));
 }
 .topbar button{background:rgba(255,255,255,.12); border:0; color:#fff; border-radius:8px; padding:7px 10px; cursor:pointer}
-.wrap{padding:26px 30px 60px; max-width:1180px; width:100%}
+.wrap{padding:26px 30px 60px; width:100%; max-width:2000px}
 .pagehead{margin-bottom:20px}
-.pagehead p{color:var(--muted); margin:.2em 0 0; max-width:66ch}
+.pagehead p{color:var(--muted); margin:.2em 0 0; max-width:74ch}
 
 /* ---------- primitives ---------- */
 .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
@@ -242,7 +242,7 @@ html.busy .btn{pointer-events:none; opacity:.6}
 
 /* ---------- timeline ---------- */
 .tl{overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface)}
-.tlinner{min-width:860px}
+.tlinner{min-width:860px; width:100%}
 .tlhead{display:flex; border-bottom:1px solid var(--line)}
 .tlhead .lab{flex:0 0 250px; padding:10px 14px; font-size:.76rem; color:var(--muted); font-weight:600; background:var(--surface-2)}
 .tlhead .mon{flex:1; display:flex}
@@ -270,6 +270,7 @@ html.busy .btn{pointer-events:none; opacity:.6}
 .tldot{position:absolute; top:12px; width:14px; height:14px; background:var(--red); transform:translateX(-50%) rotate(45deg); border-radius:2px}
 .tlnote{position:absolute; top:10px; font-size:.75rem; white-space:nowrap; color:var(--ink)}
 .tlnote.inbar{color:#fff; font-weight:600}
+.tlnote.right{text-align:right}
 .tltoday{position:absolute; top:0; bottom:0; width:2px; background:var(--red); opacity:.75}
 
 .rub{border:1px solid var(--line); border-left:3px solid var(--line-2); border-radius:var(--radius-s); padding:9px 11px; background:var(--surface-2)}
@@ -1393,11 +1394,17 @@ function viewTimeline(){
         const st=new Date(i.start+'T00:00:00'), e=new Date((i.end||i.start)+'T00:00:00');
         const l=((st-min)/span)*100, w=Math.max(((e-st)/span)*100,0.6);
         if(i.kind==='milestone'){
-          return '<div class="tldot" style="left:'+l+'%"></div><div class="tlnote" style="left:calc('+l+'% + 12px)">'+esc(i.note||'')+'</div>';
+          const ket=(l>82)
+            ? '<div class="tlnote right" style="right:calc('+(100-l)+'% + 12px)">'+esc(i.note||'')+'</div>'
+            : '<div class="tlnote" style="left:calc('+l+'% + 12px)">'+esc(i.note||'')+'</div>';
+          return '<div class="tldot" style="left:'+l+'%"></div>'+ket;
         }
         const inbar=w>13;
-        return '<div class="tlbar '+esc(i.style||'navy')+'" style="left:'+l+'%; width:'+w+'%"></div>'+
-          '<div class="tlnote '+(inbar?'inbar':'')+'" style="left:'+(inbar?'calc('+l+'% + 8px)':'calc('+(l+w)+'% + 8px)')+'">'+esc(i.note||'')+'</div>';
+        let ket;
+        if(inbar) ket='<div class="tlnote inbar" style="left:calc('+l+'% + 8px)">'+esc(i.note||'')+'</div>';
+        else if(l+w>82) ket='<div class="tlnote right" style="right:calc('+(100-l)+'% + 8px)">'+esc(i.note||'')+'</div>';
+        else ket='<div class="tlnote" style="left:calc('+(l+w)+'% + 8px)">'+esc(i.note||'')+'</div>';
+        return '<div class="tlbar '+esc(i.style||'navy')+'" style="left:'+l+'%; width:'+w+'%"></div>'+ket;
       }).join('');
       return '<div class="tlrow"><div class="lab">'+esc(rn)+'</div><div class="tltrack">'+bars+'</div></div>';
     }).join('');
