@@ -146,6 +146,22 @@ th{font-size:.76rem; color:var(--muted); font-weight:600; background:var(--surfa
 tbody tr:last-child td{border-bottom:0}
 .tscroll{overflow-x:auto}
 
+.sortbtn{background:transparent; border:0; padding:0; cursor:pointer; font:inherit;
+  font-size:.76rem; font-weight:600; color:var(--muted); white-space:nowrap}
+.sortbtn:hover{color:var(--navy)}
+.sortbtn.on{color:var(--navy)}
+.filtrow th{padding:6px 10px 10px; background:var(--surface-2); border-bottom:1px solid var(--line)}
+input.filt{width:100%; min-width:76px; padding:5px 8px; font-size:.8rem;
+  border:1px solid var(--line-2); border-radius:6px; background:var(--surface); color:var(--ink)}
+input.filt::placeholder{color:var(--faint)}
+.sumtable th:first-child, .sumtable td:first-child{min-width:170px}
+.cfgcol{border-left:2px solid var(--line-2); background:var(--surface-2)}
+thead .cfgcol{color:var(--navy)}
+.card.alert{border-color:var(--amber); box-shadow:0 0 0 1px var(--amber-soft), var(--shadow)}
+.card.alert>.hd{background:var(--amber-soft)}
+.navbadge{margin-left:auto; background:var(--red); color:#fff; font-size:.7rem; font-weight:700;
+  min-width:20px; height:20px; padding:0 6px; border-radius:99px; display:inline-flex;
+  align-items:center; justify-content:center}
 .pill{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:99px; font-size:.75rem; font-weight:600; white-space:nowrap}
 .pill.siap{background:var(--ice); color:var(--navy)}
 .pill.damping{background:var(--amber-soft); color:var(--amber)}
@@ -341,6 +357,8 @@ function kb(n){ return n?Math.round(n/1024)+' KB':''; }
 
 /* ---------- state ---------- */
 let OPEN={};          // tugas modul mana yang sedang dibuka isinya
+let SORT={key:'name',dir:1};   // urutan tabel ringkasan
+let FILT={};                   // kata kunci pencarian per kolom
 let ME=null;          // profil pengguna yang sedang masuk
 let BUSY=false;
 let S=emptyState();
@@ -497,14 +515,13 @@ function isLateDue(due,iso){ return !!(due&&iso&&iso.slice(0,10)>due); }
 const NAV={
   admin:[
     ['Program',[['#/ringkasan','Ringkasan'],['#/timeline','Timeline']]],
-    ['Data',[['#/peserta','Peserta'],['#/mentor','Mentor']]],
+    ['Data',[['#/mentor','Mentor']]],
     ['Materi',[['#/modul','Modul & Tugas'],['#/tugas','Poin Tugas Checkpoint']]],
     ['Penilaian',[['#/checkpoint','Checkpoint & Ambang']]],
     ['Sistem',[['#/pengaturan','Pengaturan Data']]]
   ],
   mentor:[
-    ['Program',[['#/ringkasan','Ringkasan'],['#/timeline','Timeline']]],
-    ['Mentoring',[['#/peserta','Peserta']]]
+    ['Program',[['#/ringkasan','Ringkasan'],['#/timeline','Timeline']]]
   ],
   peserta:[
     ['Program',[['#/ringkasan','Ringkasan'],['#/timeline','Timeline']]],
@@ -537,7 +554,12 @@ function sidebar(active){
     nav+='<div class="grp">'+esc(g[0])+'</div>';
     g[1].forEach(it=>{
       const on=it[0].replace('#/','')===active?'on':'';
-      nav+='<a class="'+on+'" href="'+it[0]+'">'+esc(it[1])+'</a>';
+      let badge='';
+      if(it[0]==='#/ringkasan'){
+        const n=pendingList().reduce((x,y)=>x+y.n,0);
+        if(n) badge='<span class="navbadge">'+n+'</span>';
+      }
+      nav+='<a class="'+on+'" href="'+it[0]+'">'+esc(it[1])+badge+'</a>';
     });
   });
   return '<aside class="side" id="side">'+
@@ -554,7 +576,7 @@ function route(parts,r){
     case 'timeline': return viewTimeline();
     case 'peserta':
       if(parts[1]) return viewParticipant(parts[1],parts[2]||'mod','#/peserta/'+parts[1]);
-      return guard(r!=='peserta')||viewParticipantList();
+      return viewSummary();
     case 'cp-saya': {
       const pid=myPid(); if(!pid) return guard(false);
       return viewParticipant(pid,parts[1]||'mod','#/cp-saya');
@@ -586,82 +608,173 @@ function viewLogin(err){
     '</div></div></div></div>';
 }
 
+/* ---------- daftar peserta yang punya kiriman menunggu validasi ---------- */
+function pendingList(){
+  const r=role(); if(r!=='admin'&&r!=='mentor') return [];
+  const mine=myMentorId();
+  const out=[];
+  S.participants.forEach(function(p){
+    if(r==='mentor'&&p.mentorId!==mine) return;
+    const items=S.tasks.filter(t=>subStatus(t.id,p.id)==='menunggu');
+    if(items.length) out.push({p:p,n:items.length,first:items[0]});
+  });
+  return out.sort((x,y)=>y.n-x.n||x.p.name.localeCompare(y.p.name));
+}
+function tabOf(t){ return t.scope==='mod'?'mod':('cp'+t.cp); }
+
+/* ---------- urutan & pencarian ---------- */
+function numMatch(f,v){
+  f=String(f||'').trim(); if(!f) return true;
+  if(f==='-'||f==='—') return v==null;
+  const m=f.match(/^(>=|<=|>|<|=)?\s*([0-9]+(?:[.,][0-9]+)?)$/);
+  if(!m) return true;
+  if(v==null) return false;
+  const n=parseFloat(m[2].replace(',','.')), op=m[1]||'>=';
+  if(op==='>')  return v>n;
+  if(op==='<')  return v<n;
+  if(op==='<=') return v<=n;
+  if(op==='=')  return Math.abs(v-n)<0.005;
+  return v>=n;
+}
+function txtMatch(f,v){
+  f=String(f||'').trim().toLowerCase(); if(!f) return true;
+  return String(v||'').toLowerCase().indexOf(f)>=0;
+}
+function sortRows(rows){
+  const k=SORT.key, d=SORT.dir;
+  return rows.slice().sort(function(x,y){
+    if(k==='name')   return d*x.p.name.localeCompare(y.p.name,'id');
+    if(k==='mentor') return d*String(x.mentor).localeCompare(String(y.mentor),'id');
+    if(k==='akses')  return d*String(x.akses).localeCompare(String(y.akses),'id');
+    const a=x.vals[k], b=y.vals[k];
+    if(a==null&&b==null) return x.p.name.localeCompare(y.p.name,'id');
+    if(a==null) return 1;            // yang belum bernilai selalu di bawah
+    if(b==null) return -1;
+    return d*(a-b) || x.p.name.localeCompare(y.p.name,'id');
+  });
+}
+function sortTh(key,label,extra){
+  const on=SORT.key===key;
+  const arrow=on?(SORT.dir>0?' ▲':' ▼'):'';
+  return '<th'+(extra||'')+'><button class="sortbtn'+(on?' on':'')+'" data-act="sort" data-k="'+key+'">'+
+    esc(label)+arrow+'</button></th>';
+}
+function filtTh(key,ph,extra){
+  return '<th'+(extra||'')+'><input class="filt" type="text" data-filt="'+key+'" value="'+
+    esc(FILT[key]||'')+'" placeholder="'+esc(ph)+'"></th>';
+}
+
 /* ---------- ringkasan admin & mentor ---------- */
 function viewSummary(){
-  const list=S.participants.slice().sort((a,b)=>a.name.localeCompare(b.name));
-  const scored=list.map(p=>({p,sc:totalScore(p.id)}));
+  const r=role(), adm=(r==='admin'), mine=myMentorId();
+
+  const rows=S.participants.map(function(p){
+    const mn=M(p.mentorId);
+    const comps=components(p.id);
+    const vals={};
+    comps.forEach(c=>{ vals[c.key]=c.score; });
+    vals.total=totalScore(p.id);
+    return {
+      p:p, mentor:mn?mn.name:'', vals:vals,
+      akses:(adm||p.mentorId===mine)?'Dapat dinilai':'Hanya lihat'
+    };
+  });
+
+  const shown=sortRows(rows.filter(function(x){
+    return txtMatch(FILT.name, x.p.name+' '+x.p.store)
+        && txtMatch(FILT.mentor, x.mentor)
+        && txtMatch(FILT.akses, x.akses)
+        && numMatch(FILT.mod, x.vals.mod)
+        && numMatch(FILT.cp1, x.vals.cp1) && numMatch(FILT.cp2, x.vals.cp2)
+        && numMatch(FILT.cp3, x.vals.cp3) && numMatch(FILT.cp4, x.vals.cp4)
+        && numMatch(FILT.total, x.vals.total);
+  }));
+
   const counts={siap:0,damping:0,belum:0,none:0};
-  scored.forEach(x=>counts[readiness(x.sc).key]++);
-  const allAvg=avg(scored.map(x=>x.sc).filter(v=>v!=null));
-  const cards='<div class="grid g4" style="margin-bottom:18px">'+
-    statCard('Peserta',list.length,'orang dalam batch ini')+
-    statCard('Siap',counts.siap,'skor ≥ '+S.settings.thSiap)+
-    statCard('Perlu pendampingan',counts.damping,S.settings.thBelum+' – '+S.settings.thSiap)+
-    statCard('Belum siap',counts.belum,'skor < '+S.settings.thBelum)+'</div>';
-  const rows=scored.map(function(x){
-    const p=x.p, sc=x.sc, rd=readiness(sc), mn=M(p.mentorId);
-    const cells=components(p.id).map(function(c){
-      const ts=c.key==='mod'?allModTasks():tasksOf(Number(c.key.replace('cp','')));
+  rows.forEach(x=>counts[readiness(x.vals.total).key]++);
+  const allAvg=avg(rows.map(x=>x.vals.total).filter(v=>v!=null));
+
+  /* --- panel kiriman yang menunggu validasi --- */
+  const pend=pendingList();
+  const pendCard=pend.length
+    ? '<div class="card alert" style="margin-bottom:18px"><div class="hd">'+
+        '<h3>Menunggu validasi Anda</h3><span class="pill wait">'+pend.reduce((a,b)=>a+b.n,0)+' kiriman</span></div>'+
+        '<div class="bd">'+pend.map(x=>'<div class="item spread" style="padding:9px 0">'+
+          '<div><strong>'+esc(x.p.name)+'</strong> <span class="small muted">· '+esc(x.p.store||'')+'</span>'+
+          '<div class="small muted">'+x.n+' tugas sudah dikirim dan belum Anda nilai</div></div>'+
+          '<a class="btn ghost sm" href="#/peserta/'+x.p.id+'/'+tabOf(x.first)+'">Buka</a></div>').join('')+
+        '</div></div>'
+    : '';
+
+  const addBtn=adm?(S.mentors.length
+      ? '<button class="btn" data-act="pnew">Tambah peserta</button>'
+      : '<a class="btn ghost" href="#/mentor">Tambah mentor dulu</a>'):'';
+
+  const head='<tr>'+
+    sortTh('name','Peserta')+sortTh('mentor','Mentor')+
+    sortTh('mod','Tugas Modul')+sortTh('cp1','CP1')+sortTh('cp2','CP2')+
+    sortTh('cp3','CP3')+sortTh('cp4','CP4')+sortTh('total','Total')+
+    '<th>Status</th>'+sortTh('akses','Akses')+
+    (adm?'<th class="cfgcol">Konfigurasi</th>':'')+'</tr>';
+  const filt='<tr class="filtrow">'+
+    filtTh('name','cari nama / toko')+filtTh('mentor','cari mentor')+
+    filtTh('mod','≥2')+filtTh('cp1','≥2')+filtTh('cp2','≥2')+
+    filtTh('cp3','≥2')+filtTh('cp4','≥2')+filtTh('total','≥2')+
+    '<th></th>'+filtTh('akses','cari akses')+(adm?'<th class="cfgcol"></th>':'')+'</tr>';
+
+  const body=shown.map(function(x){
+    const p=x.p, rd=readiness(x.vals.total);
+    const cell=function(k){
+      const ts=(k==='mod')?allModTasks():tasksOf(Number(k.replace('cp','')));
       const done=ts.filter(t=>subStatus(t.id,p.id)==='selesai').length;
-      return '<td class="mono-num">'+(c.score==null?'<span class="muted">—</span>':n1(c.score))+
-        '<div class="small muted">'+done+'/'+ts.length+' selesai</div>'+
-        '<div class="small muted">'+counted(ts,p.id)+' dihitung</div></td>';
-    }).join('');
-    return '<tr><td><a href="#/peserta/'+p.id+'/ringkas"><strong>'+esc(p.name)+'</strong></a>'+
-      '<div class="small muted">'+esc(p.store)+'</div></td>'+
-      '<td class="small">'+esc(mn?mn.name:'—')+'</td>'+cells+
-      '<td class="mono-num"><strong>'+n1(sc)+'</strong></td>'+
-      '<td><span class="pill '+rd.cls+'">'+rd.label+'</span></td></tr>';
+      return '<td class="mono-num">'+(x.vals[k]==null?'<span class="muted">—</span>':n1(x.vals[k]))+
+        '<div class="small muted">'+done+'/'+ts.length+'</div></td>';
+    };
+    return '<tr><td><a href="#/peserta/'+p.id+'/mod"><strong>'+esc(p.name)+'</strong></a>'+
+        '<div class="small muted">'+esc(p.store||'')+'</div></td>'+
+      '<td class="small">'+esc(x.mentor||'—')+'</td>'+
+      cell('mod')+cell('cp1')+cell('cp2')+cell('cp3')+cell('cp4')+
+      '<td class="mono-num"><strong>'+n1(x.vals.total)+'</strong></td>'+
+      '<td><span class="pill '+rd.cls+'">'+rd.label+'</span></td>'+
+      '<td>'+(x.akses==='Dapat dinilai'?'<span class="pill done">Dapat dinilai</span>':'<span class="pill flat">Hanya lihat</span>')+'</td>'+
+      (adm?'<td class="cfgcol"><div class="row" style="gap:5px">'+
+        '<button class="btn ghost sm" data-act="ped" data-id="'+p.id+'">Ubah</button>'+
+        '<button class="btn ghost sm" data-act="pwset" data-id="'+p.id+'" data-nm="'+esc(p.name)+'">Kata sandi</button>'+
+        '<button class="btn ghost sm" data-act="udel" data-id="'+p.id+'" data-nm="'+esc(p.name)+'">Hapus</button>'+
+        '</div></td>':'')+'</tr>';
   }).join('');
-  return '<div class="pagehead"><h1>Ringkasan kesiapan</h1>'+
-    '<p>Rata-rata kesiapan batch saat ini '+(allAvg==null?'belum terbentuk karena belum ada peserta':'<strong>'+n1(allAvg)+'</strong> dari skala 3')+
-    '. Nilai kesiapan adalah rata-rata lima komponen dengan bobot sama: Tugas Modul dan empat checkpoint. '+
-    'Tugas yang batasnya sudah lewat namun belum divalidasi dihitung bernilai 1; yang batasnya belum lewat belum ikut dihitung. '+
-    'Acuan tanggal hari ini: <strong>'+fdate(today())+'</strong>.</p></div>'+cards+
+
+  const kosong=rows.length
+    ? '<tr><td colspan="11"><div class="empty"><strong>Tidak ada yang cocok</strong>Kosongkan kotak pencarian untuk menampilkan semuanya.</div></td></tr>'
+    : '<tr><td colspan="11"><div class="empty"><strong>Belum ada peserta</strong>'+
+      (adm?(S.mentors.length?'Gunakan tombol Tambah peserta di atas.':'Tambahkan mentor lebih dulu, lalu peserta dapat ditugaskan kepadanya.')
+          :'Admin program belum memasukkan daftar peserta.')+'</div></td></tr>';
+
+  return '<div class="pagehead spread"><div><h1>Ringkasan kesiapan</h1>'+
+    '<p>Rata-rata kesiapan batch saat ini '+(allAvg==null?'belum terbentuk':'<strong>'+n1(allAvg)+'</strong> dari skala 3')+
+    '. Klik judul kolom untuk mengurutkan, dan gunakan kotak di bawahnya untuk mencari. '+
+    'Untuk kolom nilai, kotak pencarian menerima bentuk seperti <code>&ge;2</code>, <code>&lt;1.6</code>, atau <code>-</code> untuk yang belum bernilai.</p></div>'+
+    addBtn+'</div>'+
+    pendCard+
+    '<div class="grid g4" style="margin-bottom:18px">'+
+      statCard('Peserta',rows.length,'orang dalam batch ini')+
+      statCard('Siap',counts.siap,'skor ≥ '+S.settings.thSiap)+
+      statCard('Perlu pendampingan',counts.damping,S.settings.thBelum+' – '+S.settings.thSiap)+
+      statCard('Belum siap',counts.belum,'skor < '+S.settings.thBelum)+
+    '</div>'+
     '<div class="card"><div class="hd"><h3>Peserta dan nilai per komponen</h3>'+
-    '<span class="small muted">Baris kecil: tugas selesai divalidasi, dan tugas yang sudah masuk perhitungan</span></div>'+
-    '<div class="bd tight"><div class="tscroll"><table>'+
-    '<thead><tr><th>Peserta</th><th>Mentor</th><th>Tugas Modul</th><th>CP1</th><th>CP2</th><th>CP3</th><th>CP4</th><th>Total</th><th>Status</th></tr></thead>'+
-    '<tbody>'+(rows||'<tr><td colspan="9"><div class="empty"><strong>Belum ada peserta</strong>Tambahkan mentor dan peserta dari menu Data untuk mulai mencatat kesiapan.</div></td></tr>')+
-    '</tbody></table></div></div></div>';
+      '<span class="small muted">'+shown.length+' dari '+rows.length+' peserta ditampilkan · angka kecil = tugas selesai divalidasi</span></div>'+
+      '<div class="bd tight"><div class="tscroll"><table class="sumtable">'+
+      '<thead>'+head+filt+'</thead><tbody>'+(body||kosong)+'</tbody></table></div></div></div>'+
+    (adm&&S.mentors.length?formParticipant():'');
 }
+
 function statCard(label,val,sub){
   return '<div class="card"><div class="bd"><div class="small muted">'+esc(label)+'</div>'+
     '<div class="score">'+esc(String(val))+'</div><div class="small muted">'+esc(sub)+'</div></div></div>';
 }
 
 /* ---------- daftar peserta ---------- */
-function viewParticipantList(){
-  const r=role(), mine=myMentorId();
-  const noMentor=S.mentors.length===0;
-  const list=S.participants.slice().sort((a,b)=>a.name.localeCompare(b.name));
-  const rows=list.map(function(p){
-    const sc=totalScore(p.id), rd=readiness(sc), mn=M(p.mentorId);
-    const own=r==='admin'||p.mentorId===mine;
-    return '<tr><td><a href="#/peserta/'+p.id+'/mod"><strong>'+esc(p.name)+'</strong></a>'+
-      '<div class="small muted">'+esc(p.store)+'</div></td>'+
-      '<td class="small">'+esc(mn?mn.name:'—')+'</td>'+
-      '<td class="mono-num"><strong>'+n1(sc)+'</strong></td>'+
-      '<td><span class="pill '+rd.cls+'">'+rd.label+'</span></td>'+
-      '<td>'+(own?'<span class="pill done">Dapat dinilai</span>':'<span class="pill flat">Hanya lihat</span>')+'</td>'+
-      (r==='admin'?'<td class="row"><button class="btn ghost sm" data-act="ped" data-id="'+p.id+'">Ubah</button>'+
-        '<button class="btn ghost sm" data-act="pwset" data-id="'+p.id+'" data-nm="'+esc(p.name)+'">Kata sandi</button>'+
-        '<button class="btn ghost sm" data-act="udel" data-id="'+p.id+'" data-nm="'+esc(p.name)+'">Hapus</button></td>':'')+'</tr>';
-  }).join('');
-  const addBtn=r==='admin'?(noMentor
-    ?'<a class="btn ghost" href="#/mentor">Tambah mentor dulu</a>'
-    :'<button class="btn" data-act="pnew">Tambah peserta</button>'):'';
-  const emptyMsg=r==='admin'
-    ?(noMentor?'Tambahkan mentor lebih dulu, lalu peserta dapat ditugaskan kepada mentornya.':'Gunakan tombol Tambah peserta untuk mengisi daftar.')
-    :'Admin program belum memasukkan daftar peserta.';
-  return '<div class="pagehead spread"><div><h1>Peserta</h1>'+
-    '<p>'+(r==='mentor'?'Anda dapat melihat seluruh peserta, namun hanya dapat menilai mentee Anda sendiri.':'Kelola daftar peserta dan penugasan mentornya.')+'</p></div>'+addBtn+'</div>'+
-    '<div class="card"><div class="bd tight"><div class="tscroll"><table>'+
-    '<thead><tr><th>Peserta</th><th>Mentor</th><th>Total</th><th>Status</th><th>Akses</th>'+(r==='admin'?'<th></th>':'')+'</tr></thead>'+
-    '<tbody>'+(rows||'<tr><td colspan="6"><div class="empty"><strong>Belum ada peserta</strong>'+emptyMsg+'</div></td></tr>')+
-    '</tbody></table></div></div></div>'+
-    (r==='admin'&&!noMentor?formParticipant():'');
-}
 function formParticipant(){
   const opts='<option value="">— belum ditetapkan —</option>'+
     S.mentors.map(m=>'<option value="'+m.id+'">'+esc(m.name)+' — '+esc(m.region)+'</option>').join('');
@@ -1252,11 +1365,25 @@ function bind(){
   });
   const lp=document.getElementById('lp');
   if(lp) lp.addEventListener('keydown',e=>{ if(e.key==='Enter') act('login'); });
+  document.querySelectorAll('[data-filt]').forEach(function(el){
+    el.addEventListener('input',function(){
+      const k=el.dataset.filt;
+      FILT[k]=el.value;
+      render();
+      const again=document.querySelector('[data-filt="'+k+'"]');
+      if(again){ again.focus(); const n=again.value.length; again.setSelectionRange(n,n); }
+    });
+  });
 }
 function act(a,el){
   const d=el?el.dataset:{};
   switch(a){
     case 'menu': { const s=document.getElementById('side'); if(s) s.classList.toggle('open'); break; }
+    case 'sort': {
+      const k=d.k;
+      if(SORT.key===k) SORT.dir=-SORT.dir; else { SORT.key=k; SORT.dir=(k==='name'||k==='mentor'||k==='akses')?1:-1; }
+      render(); break;
+    }
     case 'login': doLogin(); break;
     case 'pwtoggle': {
       const f=document.getElementById('lp'), b=document.getElementById('pweye');
