@@ -450,7 +450,12 @@ async function loadAll(){
 
 /* ---------- berkas evidence ---------- */
 const BUCKET='evidence';
+const MAXFILE=10*1024*1024;          // 10 MB per berkas
 async function uploadEvidence(file,pid,tid,slot){
+  if(file.size>MAXFILE){
+    throw new Error('Berkas "'+file.name+'" berukuran '+kb(file.size)+
+      ', melebihi batas 10 MB. Kompres dulu, atau simpan di SharePoint lalu tempel tautannya di kolom Tautan.');
+  }
   const m=String(file.name).match(/\.[A-Za-z0-9]+$/);
   const path=pid+'/'+tid+'/'+slot+'-'+Date.now()+(m?m[0].toLowerCase():'');
   const {error}=await SB.storage.from(BUCKET).upload(path,file,{
@@ -1127,7 +1132,8 @@ function taskCard(p,t,vEd,sEd,showRubric){
   if(sEd){
     workBlock='<label class="f"><span>Uraian pengerjaan</span><textarea data-work="'+t.id+'" placeholder="Apa yang Anda kerjakan dan hasilnya">'+esc(cur.work||'')+'</textarea></label>'+
       '<div class="grid g2">'+
-      (allowFile?'<label class="f"><span>Unggah evidence</span><input type="file" data-up="'+t.id+'"></label>':'')+
+      (allowFile?'<label class="f"><span>Unggah evidence <span class="muted">· maks 10 MB</span></span>'+
+        '<input type="file" data-up="'+t.id+'"></label>':'')+
       (allowLink?'<label class="f"><span>Atau tautan evidence</span><input type="text" data-lk="'+t.id+'" value="'+esc(cur.link||'')+'" placeholder="https://..."></label>':'')+
       '</div>'+history+
       '<div class="row" style="gap:7px">'+fileChip(cur,'Berkas terakhir')+linkChip(cur.link)+'</div>'+
@@ -1231,7 +1237,8 @@ function modTaskCard(p,md,t,vEd,sEd){
       '<span><strong>'+(ix+1)+'. '+esc(e.label)+'</strong></span></label>'+
       '<div style="margin:6px 0">'+evStatus(c)+'</div>'+
       '<div class="grid g2" style="margin-top:8px">'+
-        (sEd?'<label class="f"><span>Unggah berkas</span><input type="file" data-evf="'+t.id+'|'+e.id+'"></label>':'')+
+        (sEd?'<label class="f"><span>Unggah berkas <span class="muted">· maks 10 MB</span></span>'+
+          '<input type="file" data-evf="'+t.id+'|'+e.id+'"></label>':'')+
         '<label class="f"><span>Tautan</span><input type="text" data-evl="'+t.id+'|'+e.id+'" value="'+esc(c.link||'')+'" '+(sEd?'':'disabled')+' placeholder="https://..."></label>'+
       '</div>'+
       '<label class="f"><span>Nama file / keterangan lampiran</span>'+
@@ -1329,6 +1336,8 @@ function tabModules(p,base){
     '<li>Setiap tugas punya tiga bagian: Bagian A Action, Bagian B Evidence, dan Bagian C Validasi Mentor.</li>'+
     '<li>Evidence harus berasal dari toko Anda sendiri dan berpenanggal. Dokumen contoh, template kosong, atau data toko lain tidak diterima.</li>'+
     '<li>Tugas tanpa evidence dianggap belum dikumpulkan.</li>'+
+    '<li>Ukuran berkas maksimal 10 MB. Pakai PDF atau JPG, hindari Word dan PowerPoint berisi banyak gambar. '+
+    'Untuk berkas besar, simpan di SharePoint lalu tempelkan tautannya di kolom Tautan.</li>'+
     '<li>Kirim minimal 3 hari kerja sebelum tenggat agar mentor sempat memvalidasi.</li>'+
     '<li>Tugas yang sudah divalidasi menjadi bahan bawaan ke Checkpoint 1. Tidak ada materi baru yang perlu dibuat untuk checkpoint.</li>'+
     '<li>Anda boleh memperbaiki dan mengirim ulang kapan saja, termasuk setelah dinilai mentor. Setiap kiriman tersimpan sebagai riwayat, dan nilai yang berlaku adalah validasi terakhir dari mentor.</li>'+
