@@ -110,7 +110,8 @@ module.exports = async function handler(req, res) {
         email: String(body.email || '').trim() || null,
         store: role === 'peserta' ? (String(body.store || '').trim() || null) : null,
         region: role === 'mentor' ? (String(body.region || '').trim() || null) : null,
-        mentor_id: role === 'peserta' ? (body.mentor_id || null) : null
+        mentor_id: role === 'peserta' ? (body.mentor_id || null) : null,
+        lead_mentor_id: role === 'peserta' ? (body.lead_mentor_id || null) : null
       };
       const ins = await svc('/rest/v1/profiles', {
         method: 'POST',
