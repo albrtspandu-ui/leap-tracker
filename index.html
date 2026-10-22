@@ -397,7 +397,7 @@ async function loadAll(){
   (prof.data||[]).forEach(function(p){
     if(p.role==='mentor') N.mentors.push({id:p.id,name:p.name,region:p.region||'',email:p.email||''});
     else if(p.role==='peserta') N.participants.push({
-      id:p.id,name:p.name,store:p.store||'',mentorId:p.mentor_id,email:p.email||'',
+      id:p.id,name:p.name,store:p.store||'',mentorId:p.mentor_id,leadId:p.lead_mentor_id||null,email:p.email||'',
       pillars2:(p.pillars2&&p.pillars2.length)?p.pillars2:['','',''],
       pillars3:(p.pillars3&&p.pillars3.length)?p.pillars3:['','','','']
     });
@@ -669,6 +669,7 @@ function sortRows(rows){
   return rows.slice().sort(function(x,y){
     if(k==='name')   return d*x.p.name.localeCompare(y.p.name,'id');
     if(k==='mentor') return d*String(x.mentor).localeCompare(String(y.mentor),'id');
+    if(k==='lead')   return d*String(x.lead).localeCompare(String(y.lead),'id');
     if(k==='akses')  return d*String(x.akses).localeCompare(String(y.akses),'id');
     const a=x.vals[k], b=y.vals[k];
     if(a==null&&b==null) return x.p.name.localeCompare(y.p.name,'id');
@@ -693,19 +694,20 @@ function viewSummary(){
   const r=role(), adm=(r==='admin'), mine=myMentorId();
 
   const rows=S.participants.map(function(p){
-    const mn=M(p.mentorId);
+    const mn=M(p.mentorId), lead=M(p.leadId);
     const comps=components(p.id);
     const vals={};
     comps.forEach(c=>{ vals[c.key]=c.score; });
     vals.total=totalScore(p.id);
     return {
-      p:p, mentor:mn?mn.name:'', vals:vals,
+      p:p, mentor:mn?mn.name:'', lead:lead?lead.name:'', vals:vals,
       akses:(adm||p.mentorId===mine)?'Dapat dinilai':'Hanya lihat'
     };
   });
 
   const shown=sortRows(rows.filter(function(x){
     return txtMatch(FILT.name, x.p.name+' '+x.p.store)
+        && txtMatch(FILT.lead, x.lead)
         && txtMatch(FILT.mentor, x.mentor)
         && txtMatch(FILT.akses, x.akses)
         && numMatch(FILT.mod, x.vals.mod)
@@ -735,13 +737,13 @@ function viewSummary(){
       : '<a class="btn ghost" href="#/mentor">Tambah mentor dulu</a>'):'';
 
   const head='<tr>'+
-    sortTh('name','Peserta')+sortTh('mentor','Mentor')+
+    sortTh('name','Peserta')+sortTh('lead','Mentor Utama')+sortTh('mentor','Mentor Pendamping')+
     sortTh('mod','Tugas Modul')+sortTh('cp1','CP1')+sortTh('cp2','CP2')+
     sortTh('cp3','CP3')+sortTh('cp4','CP4')+sortTh('total','Total')+
     '<th>Status</th>'+sortTh('akses','Akses')+
     (adm?'<th class="cfgcol">Konfigurasi</th>':'')+'</tr>';
   const filt='<tr class="filtrow">'+
-    filtTh('name','cari nama / toko')+filtTh('mentor','cari mentor')+
+    filtTh('name','cari nama / toko')+filtTh('lead','cari mentor utama')+filtTh('mentor','cari pendamping')+
     filtTh('mod','≥2')+filtTh('cp1','≥2')+filtTh('cp2','≥2')+
     filtTh('cp3','≥2')+filtTh('cp4','≥2')+filtTh('total','≥2')+
     '<th></th>'+filtTh('akses','cari akses')+(adm?'<th class="cfgcol"></th>':'')+'</tr>';
@@ -756,7 +758,8 @@ function viewSummary(){
     };
     return '<tr><td><a href="#/peserta/'+p.id+'/mod"><strong>'+esc(p.name)+'</strong></a>'+
         '<div class="small muted">'+esc(p.store||'')+'</div></td>'+
-      '<td class="small">'+esc(x.mentor||'—')+'</td>'+
+      '<td class="small">'+(x.lead?esc(x.lead):'<span class="muted">belum ditetapkan</span>')+'</td>'+
+      '<td class="small">'+(x.mentor?esc(x.mentor):'<span class="muted">belum ditetapkan</span>')+'</td>'+
       cell('mod')+cell('cp1')+cell('cp2')+cell('cp3')+cell('cp4')+
       '<td class="mono-num"><strong>'+n1(x.vals.total)+'</strong></td>'+
       '<td><span class="pill '+rd.cls+'">'+rd.label+'</span></td>'+
@@ -769,8 +772,8 @@ function viewSummary(){
   }).join('');
 
   const kosong=rows.length
-    ? '<tr><td colspan="11"><div class="empty"><strong>Tidak ada yang cocok</strong>Kosongkan kotak pencarian untuk menampilkan semuanya.</div></td></tr>'
-    : '<tr><td colspan="11"><div class="empty"><strong>Belum ada peserta</strong>'+
+    ? '<tr><td colspan="12"><div class="empty"><strong>Tidak ada yang cocok</strong>Kosongkan kotak pencarian untuk menampilkan semuanya.</div></td></tr>'
+    : '<tr><td colspan="12"><div class="empty"><strong>Belum ada peserta</strong>'+
       (adm?(S.mentors.length?'Gunakan tombol Tambah peserta di atas.':'Tambahkan mentor lebih dulu, lalu peserta dapat ditugaskan kepadanya.')
           :'Admin program belum memasukkan daftar peserta.')+'</div></td></tr>';
 
@@ -807,7 +810,10 @@ function formParticipant(){
     '<div class="grid g2">'+
       '<label class="f"><span>Nama lengkap</span><input type="text" id="pf_name"></label>'+
       '<label class="f"><span>Toko</span><input type="text" id="pf_store"></label>'+
-      '<label class="f"><span>Mentor</span><select id="pf_mentor">'+opts+'</select></label>'+
+      '<label class="f"><span>Mentor Utama <span class="muted">· hanya melihat</span></span>'+
+        '<select id="pf_lead">'+opts+'</select></label>'+
+      '<label class="f"><span>Mentor Pendamping <span class="muted">· yang memvalidasi</span></span>'+
+        '<select id="pf_mentor">'+opts+'</select></label>'+
       '<label class="f"><span>Nama pengguna untuk masuk</span>'+
         '<input type="text" id="pf_user" autocapitalize="none" placeholder="mis. rina.pratiwi"></label>'+
       '<label class="f"><span id="pf_passlbl">Kata sandi awal</span>'+
@@ -822,19 +828,26 @@ function formParticipant(){
 function viewMentorList(){
   const rows=S.mentors.map(function(m){
     const ment=S.participants.filter(p=>p.mentorId===m.id);
+    const lead=S.participants.filter(p=>p.leadId===m.id);
     const sc=avg(ment.map(p=>totalScore(p.id)).filter(v=>v!=null));
     return '<tr><td><strong>'+esc(m.name)+'</strong><div class="small muted">'+esc(m.region)+'</div></td>'+
       '<td class="small">'+esc(m.email||'—')+'</td>'+
-      '<td>'+ment.length+' peserta'+(ment.length?'<div class="small muted">'+ment.map(p=>esc(p.name)).join(', ')+'</div>':'')+'</td>'+
+      '<td><strong>'+ment.length+'</strong> sebagai pendamping'+
+        (ment.length?'<div class="small muted">'+ment.map(p=>esc(p.name)).join(', ')+'</div>':'')+
+        '<div class="small muted" style="margin-top:5px">'+lead.length+' sebagai mentor utama'+
+        (lead.length?': '+lead.map(p=>esc(p.name)).join(', '):'')+'</div></td>'+
       '<td class="mono-num">'+n1(sc)+'</td>'+
       '<td class="row"><button class="btn ghost sm" data-act="med" data-id="'+m.id+'">Ubah</button>'+
       '<button class="btn ghost sm" data-act="pwset" data-id="'+m.id+'" data-nm="'+esc(m.name)+'">Kata sandi</button>'+
       '<button class="btn ghost sm" data-act="udel" data-id="'+m.id+'" data-nm="'+esc(m.name)+'">Hapus</button></td></tr>';
   }).join('');
-  return '<div class="pagehead spread"><div><h1>Mentor</h1><p>Satu mentor dapat memegang lebih dari satu peserta.</p></div>'+
+  return '<div class="pagehead spread"><div><h1>Mentor</h1>'+
+    '<p>Setiap peserta punya dua mentor. <strong>Mentor Pendamping</strong> adalah Region Manager tempat peserta berada, '+
+    'dan hanya dialah yang bisa memvalidasi serta menilai. <strong>Mentor Utama</strong> adalah Region Manager yang ditunjuk dari region lain, '+
+    'yang bisa melihat seluruh peserta tetapi tidak mengubah apa pun.</p></div>'+
     '<button class="btn" data-act="mnew">Tambah mentor</button></div>'+
     '<div class="card"><div class="bd tight"><div class="tscroll"><table>'+
-    '<thead><tr><th>Mentor</th><th>Email</th><th>Mentee</th><th>Rata-rata mentee</th><th></th></tr></thead>'+
+    '<thead><tr><th>Mentor</th><th>Email</th><th>Peserta yang dipegang</th><th>Rata-rata mentee</th><th></th></tr></thead>'+
     '<tbody>'+(rows||'<tr><td colspan="5"><div class="empty"><strong>Belum ada mentor</strong>Tambahkan Region Manager yang akan memegang peserta.</div></td></tr>')+
     '</tbody></table></div></div></div>'+
     '<div class="card" id="mform" style="display:none; margin-top:16px"><div class="hd"><h3 id="mformtitle">Tambah mentor</h3></div>'+
@@ -1003,7 +1016,9 @@ function viewParticipant(pid,tab,base){
   const note=(r==='mentor'&&!canValidate(pid))?'<p class="small muted">Anda bukan mentor peserta ini, jadi halaman ini hanya dapat dilihat.</p>':'';
   return '<div class="pagehead">'+back+
     '<div class="spread" style="margin-top:6px">'+
-      '<div><h1>'+esc(p.name)+'</h1><p>'+esc(p.store)+' · Mentor '+esc(mn?mn.name:'belum ditetapkan')+'</p></div>'+
+      '<div><h1>'+esc(p.name)+'</h1><p>'+esc(p.store)+
+        ' · Mentor Pendamping '+esc(mn?mn.name:'belum ditetapkan')+
+        ' · Mentor Utama '+esc((M(p.leadId)||{}).name||'belum ditetapkan')+'</p></div>'+
       '<div style="text-align:right"><div class="score">'+n1(sc)+'</div><span class="pill '+rd.cls+'">'+rd.label+'</span></div>'+
     '</div>'+note+'</div>'+
     '<div class="tabs">'+tabs+'</div>'+body;
@@ -1360,7 +1375,8 @@ function viewPesertaHome(){
   const link=t=>'#/cp-saya/'+(t.scope==='mod'?'mod':'cp'+t.cp);
   const where=t=>t.scope==='mod'?('Modul '+esc((MOD(t.moduleId)||{}).name||'')):('Checkpoint '+t.cp);
   return '<div class="pagehead"><h1>Halo, '+esc(p.name.split(' ')[0])+'</h1>'+
-    '<p>'+esc(p.store)+' · Mentor '+esc((M(p.mentorId)||{}).name||'belum ditetapkan')+'</p></div>'+
+    '<p>'+esc(p.store)+' · Mentor Pendamping '+esc((M(p.mentorId)||{}).name||'belum ditetapkan')+
+      ' · Mentor Utama '+esc((M(p.leadId)||{}).name||'belum ditetapkan')+'</p></div>'+
     '<div class="card" style="margin-bottom:16px"><div class="bd spread">'+
       '<div><div class="small muted">Nilai kesiapan total</div><div class="score">'+n1(sc)+'</div>'+
         '<span class="pill '+rd.cls+'">'+rd.label+'</span></div>'+
@@ -1466,7 +1482,7 @@ function act(a,el){
     case 'menu': { const s=document.getElementById('side'); if(s) s.classList.toggle('open'); break; }
     case 'sort': {
       const k=d.k;
-      if(SORT.key===k) SORT.dir=-SORT.dir; else { SORT.key=k; SORT.dir=(k==='name'||k==='mentor'||k==='akses')?1:-1; }
+      if(SORT.key===k) SORT.dir=-SORT.dir; else { SORT.key=k; SORT.dir=(k==='name'||k==='mentor'||k==='lead'||k==='akses')?1:-1; }
       render(); break;
     }
     case 'login': doLogin(); break;
@@ -1611,6 +1627,7 @@ function openPForm(id){
   document.getElementById('pf_name').value=p?p.name:'';
   document.getElementById('pf_store').value=p?(p.store||''):'';
   document.getElementById('pf_mentor').value=p?(p.mentorId||''):'';
+  document.getElementById('pf_lead').value=p?(p.leadId||''):'';
   const u=document.getElementById('pf_user'), pw=document.getElementById('pf_pass');
   u.value=''; pw.value='';
   u.disabled=!!p; u.placeholder=p?'tidak dapat diubah':'mis. rina.pratiwi';
@@ -1626,10 +1643,15 @@ function savePerson(){
   const name=document.getElementById('pf_name').value.trim();
   const store=document.getElementById('pf_store').value.trim();
   const mentorId=document.getElementById('pf_mentor').value||null;
+  const leadId=document.getElementById('pf_lead').value||null;
   if(!name){ alert('Nama peserta belum diisi.'); return; }
+  if(leadId&&mentorId&&leadId===mentorId){
+    alert('Mentor Utama dan Mentor Pendamping harus orang yang berbeda.'); return;
+  }
   if(id){
     tx(async function(){
-      const {error}=await SB.from('profiles').update({name:name,store:store,mentor_id:mentorId}).eq('id',id);
+      const {error}=await SB.from('profiles')
+        .update({name:name,store:store,mentor_id:mentorId,lead_mentor_id:leadId}).eq('id',id);
       if(error) throw error;
     },'Peserta tersimpan.');
     return;
@@ -1640,7 +1662,7 @@ function savePerson(){
   if(pass.length<6){ alert('Kata sandi minimal 6 karakter.'); return; }
   tx(async function(){
     await api({action:'create',role:'peserta',username:username,password:pass,
-      name:name,store:store,mentor_id:mentorId});
+      name:name,store:store,mentor_id:mentorId,lead_mentor_id:leadId});
   },'Peserta ditambahkan. Nama pengguna: '+username);
 }
 function openMForm(id){
