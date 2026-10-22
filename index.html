@@ -223,6 +223,27 @@ html.busy .btn{pointer-events:none; opacity:.6}
   background:transparent; border:0; color:var(--muted); font-size:.78rem; cursor:pointer;
   padding:5px 9px; border-radius:6px}
 .pweye:hover{background:var(--surface-2); color:var(--navy)}
+.filechip{display:inline-flex; align-items:center; gap:6px; margin:4px 0; padding:6px 11px;
+  border:1px solid var(--line-2); border-radius:99px; background:var(--surface);
+  color:var(--navy); font-size:.8rem; font-weight:600; cursor:pointer; max-width:100%;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+a.filechip{text-decoration:none}
+.filechip:hover{background:var(--ice); border-color:var(--navy)}
+.filechip .fi{font-size:.95rem}
+.filechip .muted{font-weight:400}
+.modal{position:fixed; inset:0; z-index:250; background:rgba(8,14,24,.72);
+  display:flex; align-items:center; justify-content:center; padding:24px;
+  padding-top:calc(24px + env(safe-area-inset-top,0px));
+  padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.mbox{background:var(--surface); border-radius:var(--radius); width:min(1000px,100%);
+  max-height:100%; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.mhd{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:12px 16px; border-bottom:1px solid var(--line)}
+.mbd{padding:14px; overflow:auto; background:var(--surface-2); flex:1; min-height:0}
+.mbd img{max-width:100%; height:auto; display:block; margin:0 auto; border-radius:var(--radius-s)}
+.mbd iframe{width:100%; height:72vh; border:0; border-radius:var(--radius-s); background:#fff}
+.nopreview{text-align:center; padding:36px 16px; color:var(--muted)}
+.nopreview p{margin:0 0 14px}
 .toast{
   position:fixed; left:50%; transform:translateX(-50%); bottom:26px; z-index:200;
   background:var(--navy-ink); color:#fff; padding:10px 18px; border-radius:99px; font-size:.86rem;
@@ -425,6 +446,72 @@ async function loadAll(){
     kind:i.kind,style:i.style,note:i.note||''}));
   if(set.data) N.settings={thBelum:Number(set.data.th_belum),thSiap:Number(set.data.th_siap)};
   S=N;
+}
+
+/* ---------- berkas evidence ---------- */
+const BUCKET='evidence';
+async function uploadEvidence(file,pid,tid,slot){
+  const m=String(file.name).match(/\.[A-Za-z0-9]+$/);
+  const path=pid+'/'+tid+'/'+slot+'-'+Date.now()+(m?m[0].toLowerCase():'');
+  const {error}=await SB.storage.from(BUCKET).upload(path,file,{
+    contentType:file.type||'application/octet-stream', upsert:false
+  });
+  if(error) throw new Error('Gagal mengunggah '+file.name+': '+(error.message||error));
+  return {path:path,fileName:file.name,size:file.size,mime:file.type||''};
+}
+function fileChip(c,label){
+  if(!c||!c.fileName) return '';
+  if(!c.path) return '<div class="small muted">'+esc(label||'Berkas')+': '+esc(c.fileName)+' '+kb(c.size)+
+    ' <span style="color:var(--red)">(tercatat sebelum penyimpanan berkas aktif, isinya tidak tersimpan)</span></div>';
+  return '<button class="filechip" data-act="viewfile" data-path="'+esc(c.path)+'" data-nm="'+esc(c.fileName)+
+    '" data-mime="'+esc(c.mime||'')+'"><span class="fi">&#128206;</span>'+esc(c.fileName)+
+    ' <span class="muted">'+kb(c.size)+'</span></button>';
+}
+function safeUrl(u){
+  u=String(u||'').trim(); if(!u) return '';
+  if(/^https?:\/\//i.test(u)) return u;
+  if(/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(u)) return 'https://'+u;   // ditulis tanpa https://
+  return '';
+}
+function linkChip(url){
+  const u=safeUrl(url);
+  if(!u) return String(url||'').trim()
+    ? '<div class="small muted">Tautan: '+esc(url)+' <span style="color:var(--red)">(bukan alamat web yang sah)</span></div>'
+    : '';
+  return '<a class="filechip" href="'+esc(u)+'" target="_blank" rel="noopener">'+
+    '<span class="fi">&#128279;</span>'+esc(u.length>60?u.slice(0,57)+'…':u)+'</a>';
+}
+function evStatus(c){
+  const ada=!!(c&&(c.path||safeUrl(c.link)));
+  if(ada) return '<span class="pill done">Lampiran tersimpan</span>';
+  if(c&&c.fileName&&!c.path) return '<span class="pill belum">Berkas gagal tersimpan</span>';
+  return '<span class="pill flat">Belum ada lampiran</span>';
+}
+async function viewFile(path,name,mime){
+  setBusy(true);
+  const {data,error}=await SB.storage.from(BUCKET).createSignedUrl(path,3600);
+  setBusy(false);
+  if(error||!data){ alert('Tidak bisa membuka berkas: '+((error&&error.message)||'tautan gagal dibuat')); return; }
+  const url=data.signedUrl;
+  const low=String(name||'').toLowerCase();
+  const isImg=/^image\//.test(mime)||/\.(png|jpe?g|gif|webp|bmp|svg)$/.test(low);
+  const isPdf=/pdf/.test(mime)||/\.pdf$/.test(low);
+  let inner;
+  if(isImg) inner='<img src="'+url+'" alt="'+esc(name)+'">';
+  else if(isPdf) inner='<iframe src="'+url+'" title="'+esc(name)+'"></iframe>';
+  else inner='<div class="nopreview"><p>Jenis berkas ini tidak bisa ditampilkan langsung di sini.</p>'+
+    '<a class="btn" href="'+url+'" target="_blank" rel="noopener">Buka atau unduh berkas</a></div>';
+  const ov=document.createElement('div');
+  ov.className='modal';
+  ov.innerHTML='<div class="mbox"><div class="mhd"><strong>'+esc(name)+'</strong>'+
+    '<div class="row"><a class="btn ghost sm" href="'+url+'" target="_blank" rel="noopener">Buka di tab baru</a>'+
+    '<button class="btn ghost sm" data-close>Tutup</button></div></div>'+
+    '<div class="mbd">'+inner+'</div></div>';
+  function close(){ ov.remove(); document.removeEventListener('keydown',esckey); }
+  function esckey(e){ if(e.key==='Escape') close(); }
+  ov.addEventListener('click',function(e){ if(e.target===ov||e.target.hasAttribute('data-close')) close(); });
+  document.addEventListener('keydown',esckey);
+  document.body.appendChild(ov);
 }
 
 /* ---------- pembungkus setiap penyimpanan ---------- */
@@ -1043,7 +1130,7 @@ function taskCard(p,t,vEd,sEd,showRubric){
       (allowFile?'<label class="f"><span>Unggah evidence</span><input type="file" data-up="'+t.id+'"></label>':'')+
       (allowLink?'<label class="f"><span>Atau tautan evidence</span><input type="text" data-lk="'+t.id+'" value="'+esc(cur.link||'')+'" placeholder="https://..."></label>':'')+
       '</div>'+history+
-      (cur.fileName?('<div class="small muted">Berkas terakhir: '+esc(cur.fileName)+' '+kb(cur.size)+'</div>'):'')+
+      '<div class="row" style="gap:7px">'+fileChip(cur,'Berkas terakhir')+linkChip(cur.link)+'</div>'+
       '<div class="row" style="margin-top:8px">'+
         '<button class="btn ghost" data-act="drafcp" data-t="'+t.id+'" data-p="'+p.id+'">Simpan draf</button>'+
         '<button class="btn" data-act="submit" data-t="'+t.id+'" data-p="'+p.id+'">'+(last?'Kirim ulang':'Kirim pengerjaan')+'</button></div>'+
@@ -1051,8 +1138,7 @@ function taskCard(p,t,vEd,sEd,showRubric){
   }else{
     workBlock=last
       ?('<p class="small" style="margin-top:0">'+(cur.work?esc(cur.work):'<span class="muted">Peserta tidak menulis uraian.</span>')+'</p>'+history+
-        ((cur.fileName||cur.link)?('<div class="small muted">'+esc(cur.fileName||'')+' '+
-          (cur.link?('<a href="'+esc(cur.link)+'" target="_blank" rel="noopener">'+esc(cur.link)+'</a>'):'')+'</div>'):''))
+        '<div class="row" style="gap:7px">'+fileChip(cur,'Berkas')+linkChip(cur.link)+'</div>')
       :'<p class="small muted" style="margin-top:0">Peserta belum mengirim apa pun untuk tugas ini.</p>';
   }
 
@@ -1108,10 +1194,11 @@ function histBlock(t,s){
            const c=(e.evid||{})[x.id]||{};
            if(!c.on&&!c.link&&!c.note&&!c.fileName) return '';
            return '<div class="small muted">'+esc(x.label)+': '+(c.on?'dilampirkan':'belum dicentang')+
-             (c.fileName?(' · '+esc(c.fileName)):'')+(c.link?(' · '+esc(c.link)):'')+(c.note?(' · '+esc(c.note)):'')+'</div>';
+             (c.note?(' · '+esc(c.note)):'')+'</div>'+
+             '<div class="row" style="gap:7px">'+fileChip(c)+linkChip(c.link)+'</div>';
          }).join(''))
       : ('<div class="small">'+(e.work?esc(e.work):'<span class="muted">tanpa uraian</span>')+'</div>'+
-         ((e.fileName||e.link)?('<div class="small muted">'+esc(e.fileName||'')+' '+esc(e.link||'')+'</div>'):''));
+         '<div class="row" style="gap:7px">'+fileChip(e)+linkChip(e.link)+'</div>');
     const nilai=sc
       ? (sc+' · '+esc(RATE[sc-1].label)+' · dinilai '+fstamp(v.at)+' oleh '+esc(v.by||'—')+
          ((v.note||v.summary)?('<div class="small muted">'+esc(v.note||v.summary)+'</div>'):''))
@@ -1142,13 +1229,14 @@ function modTaskCard(p,md,t,vEd,sEd){
     return '<div class="item"><label class="row" style="align-items:flex-start; gap:9px">'+
       '<input type="checkbox" data-evc="'+t.id+'|'+e.id+'" '+(c.on?'checked':'')+' '+(sEd?'':'disabled')+' style="width:auto; margin-top:4px">'+
       '<span><strong>'+(ix+1)+'. '+esc(e.label)+'</strong></span></label>'+
+      '<div style="margin:6px 0">'+evStatus(c)+'</div>'+
       '<div class="grid g2" style="margin-top:8px">'+
         (sEd?'<label class="f"><span>Unggah berkas</span><input type="file" data-evf="'+t.id+'|'+e.id+'"></label>':'')+
         '<label class="f"><span>Tautan</span><input type="text" data-evl="'+t.id+'|'+e.id+'" value="'+esc(c.link||'')+'" '+(sEd?'':'disabled')+' placeholder="https://..."></label>'+
       '</div>'+
       '<label class="f"><span>Nama file / keterangan lampiran</span>'+
         '<input type="text" data-evn="'+t.id+'|'+e.id+'" value="'+esc(c.note||'')+'" '+(sEd?'':'disabled')+'></label>'+
-      (c.fileName?'<div class="small muted">Berkas terunggah: '+esc(c.fileName)+' '+kb(c.size)+'</div>':'')+
+      '<div class="row" style="gap:7px">'+fileChip(c,'Berkas terunggah')+linkChip(c.link)+'</div>'+
     '</div>';
   }).join('');
 
@@ -1528,6 +1616,7 @@ function act(a,el){
     }
     case 'togtask': OPEN[d.t]=!OPEN[d.t]; render(); break;
     case 'toghist': OPEN['h:'+d.t]=!OPEN['h:'+d.t]; render(); break;
+    case 'viewfile': viewFile(d.path,d.nm,d.mime); break;
     case 'drafmod': saveModTask(d.t,d.p,false); break;
     case 'drafcp': saveCPTask(d.t,d.p,false); break;
     case 'togall': {
@@ -1883,7 +1972,7 @@ function savePillars(pid,m){
 
 /* ---------- tugas modul: kiriman peserta ---------- */
 function readModForm(t,prev){
-  const answers={}, evid={};
+  const answers={}, evid={}, files={};
   (t.act||[]).forEach(function(x){
     const el=document.querySelector('[data-ans="'+t.id+'|'+x.id+'"]');
     answers[x.id]=el?el.value.trim():((prev.answers||{})[x.id]||'');
@@ -1895,15 +1984,18 @@ function readModForm(t,prev){
     const nt=document.querySelector('[data-evn="'+t.id+'|'+x.id+'"]');
     const fi=document.querySelector('[data-evf="'+t.id+'|'+x.id+'"]');
     const file=fi&&fi.files&&fi.files[0]?fi.files[0]:null;
+    if(file) files[x.id]=file;
     evid[x.id]={
       on:cb?cb.checked:!!c.on,
       link:lk?lk.value.trim():(c.link||''),
       note:nt?nt.value.trim():(c.note||''),
       fileName:file?file.name:(c.fileName||''),
-      size:file?file.size:(c.size||0)
+      size:file?file.size:(c.size||0),
+      path:file?null:(c.path||null),
+      mime:file?(file.type||''):(c.mime||'')
     };
   });
-  return {answers:answers,evid:evid};
+  return {answers:answers,evid:evid,files:files};
 }
 function saveModTask(tid,pid,kirim){
   const t=T(tid);
@@ -1917,14 +2009,18 @@ function saveModTask(tid,pid,kirim){
   }
   const answers=Object.assign({},f.answers);
   if(!kirim) answers.__draftAt=now; else delete answers.__draftAt;
-  const row={task_id:tid, participant_id:pid, answers:answers, evid:f.evid};
-  if(kirim){
-    const n=(prev.submitCount||0)+1;
-    const hist=(prev.hist||[]).slice();
-    hist.push({n:n, at:now, late:pastDueAt(t,now), answers:f.answers, evid:f.evid, validation:null});
-    row.versions=hist; row.submit_count=n; row.submitted_at=now;
-  }
   tx(async function(){
+    for(const slot of Object.keys(f.files)){
+      const up=await uploadEvidence(f.files[slot],pid,tid,slot);
+      f.evid[slot]=Object.assign({},f.evid[slot],up);
+    }
+    const row={task_id:tid, participant_id:pid, answers:answers, evid:f.evid};
+    if(kirim){
+      const n=(prev.submitCount||0)+1;
+      const hist=(prev.hist||[]).slice();
+      hist.push({n:n, at:now, late:pastDueAt(t,now), answers:f.answers, evid:f.evid, validation:null});
+      row.versions=hist; row.submit_count=n; row.submitted_at=now;
+    }
     const {error}=await SB.from('submissions').upsert(row,{onConflict:'task_id,participant_id'});
     if(error) throw error;
   }, kirim?'Tugas terkirim. Menunggu validasi mentor.':'Draf tersimpan. Belum dikirim ke mentor.');
@@ -1972,23 +2068,29 @@ function saveCPTask(tid,pid,kirim){
     work: wk?wk.value.trim():(c.work||''),
     link: li?li.value.trim():(c.link||''),
     fileName: file?file.name:(c.fileName||''),
-    size: file?file.size:(c.size||0)
+    size: file?file.size:(c.size||0),
+    path: file?null:(c.path||null),
+    mime: file?(file.type||''):(c.mime||'')
   };
   if(kirim && !cur.work && !cur.link && !cur.fileName){
     alert('Isi uraian pengerjaan, atau lampirkan berkas atau tautan.'); return;
   }
   const now=new Date().toISOString();
-  const answers=Object.assign({},cur);
-  if(!kirim) answers.__draftAt=now;
-  const row={task_id:tid, participant_id:pid, answers:answers};
-  if(kirim){
-    const n=(prev.submitCount||0)+1;
-    const hist=(prev.hist||[]).slice();
-    hist.push({n:n, at:now, late:pastDueAt(t,now), work:cur.work, link:cur.link,
-      fileName:cur.fileName, size:cur.size, validation:null});
-    row.versions=hist; row.submit_count=n; row.submitted_at=now;
-  }
   tx(async function(){
+    if(file){
+      const up=await uploadEvidence(file,pid,tid,'cp');
+      cur.path=up.path; cur.fileName=up.fileName; cur.size=up.size; cur.mime=up.mime;
+    }
+    const answers=Object.assign({},cur);
+    if(!kirim) answers.__draftAt=now;
+    const row={task_id:tid, participant_id:pid, answers:answers};
+    if(kirim){
+      const n=(prev.submitCount||0)+1;
+      const hist=(prev.hist||[]).slice();
+      hist.push({n:n, at:now, late:pastDueAt(t,now), work:cur.work, link:cur.link,
+        fileName:cur.fileName, size:cur.size, path:cur.path||null, mime:cur.mime||'', validation:null});
+      row.versions=hist; row.submit_count=n; row.submitted_at=now;
+    }
     const {error}=await SB.from('submissions').upsert(row,{onConflict:'task_id,participant_id'});
     if(error) throw error;
   }, kirim?'Pengerjaan terkirim. Menunggu validasi mentor.':'Draf tersimpan. Belum dikirim ke mentor.');
