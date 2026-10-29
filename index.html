@@ -1570,10 +1570,12 @@ function timelineEditor(){
 /* ============================================================
    Ekspor lembar validasi Mentor Utama ke Word
    Satu berkas per komponen: Tugas Modul, atau Checkpoint 1-4.
-   Dokumen dibuat sebagai HTML ber-ekstensi .doc; Word membukanya
-   seperti dokumen biasa dan bisa disimpan ulang jadi .docx.
+   Halaman 1 memuat penilaian Mentor Pendamping dan baris kosong
+   untuk Mentor Utama. Lampiran memuat rincian tiap tugas.
    ============================================================ */
 const COMPKEYS=['mod','cp1','cp2','cp3','cp4'];
+const SIGN_TTL=7*24*3600;      // tautan berkas berlaku 7 hari
+
 function compLabel(key){
   return key==='mod' ? 'Tugas Modul' : CP(Number(key.replace('cp',''))).name;
 }
@@ -1583,18 +1585,32 @@ function compTasks(key){
 function compAssessKey(key){
   return key==='mod' ? 'mod' : Number(key.replace('cp',''));
 }
-function wBox(){ return '<span style="border:1px solid #000;padding:0 5px;font-size:9pt">&nbsp;</span>'; }
 function wCut(s,n){
   s=String(s||'').replace(/\s+/g,' ').trim();
   return s.length>n ? s.slice(0,n-1)+'…' : s;
 }
 function evAda(c){ return !!(c&&(c.path||safeUrl(c.link))); }
-function evKet(c){
-  if(!c) return '';
-  if(c.path) return esc(c.fileName)+' · '+kb(c.size);
-  if(safeUrl(c.link)) return esc(c.link);
-  if(c.fileName) return esc(c.fileName)+' (tidak tersimpan)';
-  return '';
+
+/* gaya sel, disisipkan langsung karena Word lebih patuh pada inline style */
+const TD  ='border:0.5pt solid #99a;padding:4pt 6pt;vertical-align:top;font-size:9pt';
+const TH  =TD+';background:#1b3a6b;color:#fff;font-size:8.5pt;text-align:left';
+const TDL ='border:0.5pt solid #b7c2d0;padding:4pt 6pt;vertical-align:top;font-size:9pt';
+const THL =TDL+';background:#1b3a6b;color:#fff;font-size:8.5pt;font-weight:bold;text-align:left';
+const TDK =TDL+';background:#f1f4f9;color:#444;font-weight:bold';
+const GREY='background:#f1f4f9';
+const LBL ='font-size:7pt;color:#777;margin:0 0 1pt;letter-spacing:.3pt';
+const NUM ='font-size:13pt;font-weight:bold;color:#1b3a6b;margin:0';
+const KET ='font-size:8pt;color:#777';
+const SEC ='font-size:9pt;font-weight:bold;color:#1b3a6b;letter-spacing:.5pt;margin:12pt 0 4pt';
+const TBL ='border-collapse:collapse;width:100%;margin:0 0 4pt';
+function kotakIsian(){
+  return '<table align="center" style="border-collapse:collapse;width:32pt;margin:2pt auto 0">'+
+    '<tr><td style="border:0.75pt solid #333;height:20pt;background:#fff">&nbsp;</td></tr></table>';
+}
+function tautan(url,teks,ukuran){
+  const t=esc(teks);
+  const isi=url ? '<a href="'+esc(url)+'" style="color:#0b5cad;text-decoration:underline">'+t+'</a>' : t;
+  return isi+(ukuran?' <span style="color:#777">· '+kb(ukuran)+'</span>':'');
 }
 
 /* ringkasan otomatis: apa yang dikerjakan peserta + komentar mentor */
@@ -1611,7 +1627,7 @@ function wRingkas(t,s){
   }else{
     const c=s.answers||{};
     kerja=c.work?esc(wCut(c.work,240)):'<i style="color:#888">peserta belum mengisi uraian</i>';
-    kerja+=' <b>Evidence</b> '+((c.path||safeUrl(c.link))?'ada':'belum ada')+'.';
+    kerja+=' <b>Evidence</b> '+(evAda(c)?'ada':'belum ada')+'.';
   }
   const komentar=(t.scope==='mod')?(v.summary||''):(v.note||'');
   const lanjut=(t.scope==='mod')?(v.follow||''):'';
@@ -1621,7 +1637,29 @@ function wRingkas(t,s){
     (lanjut?('<br><b>Tindak lanjut.</b> '+esc(lanjut)):'');
 }
 
-function buildWordDoc(pid,key){
+/* kumpulkan seluruh path berkas pada komponen ini, lalu buat tautan bertanda tangan */
+async function signedMap(pid,tasks){
+  const paths=[];
+  tasks.forEach(function(t){
+    const s=sub(t.id,pid); if(!s) return;
+    if(t.scope==='mod'){
+      (t.ev||[]).forEach(function(e){
+        const c=(s.evid||{})[e.id]; if(c&&c.path) paths.push(c.path);
+      });
+    }else if((s.answers||{}).path){ paths.push(s.answers.path); }
+  });
+  const map={};
+  if(!paths.length) return map;
+  try{
+    const {data,error}=await SB.storage.from(BUCKET).createSignedUrls(paths,SIGN_TTL);
+    if(error) throw error;
+    (data||[]).forEach(function(r){ if(r&&r.path&&r.signedUrl) map[r.path]=r.signedUrl; });
+  }catch(e){ console.warn('Tautan berkas tidak bisa dibuat:',e); }
+  return map;
+}
+
+function buildWordDoc(pid,key,urls){
+  urls=urls||{};
   const p=P(pid), mn=M(p.mentorId), lead=M(p.leadId);
   const label=compLabel(key);
   const tasks=compTasks(key);
@@ -1629,8 +1667,10 @@ function buildWordDoc(pid,key){
   const sc=(key==='mod')?modScore(pid):cpScore(pid,Number(key.replace('cp','')));
   const dinilai=tasks.filter(t=>{const s=sub(t.id,pid); return s&&valScore(t,s.validation);}).length;
   const terkirim=tasks.filter(t=>subStatus(t.id,pid)!=='belum');
+  const stLabel={menunggu:'Menunggu validasi',revisi:'Revisi menunggu validasi',selesai:'Sudah dinilai'};
 
-  let rowsR='', rowsU='';
+  /* ---------- tabel penilaian dan validasi ---------- */
+  let baris='';
   tasks.forEach(function(t){
     const s=sub(t.id,pid)||{};
     const n=s.validation?valScore(t,s.validation):null;
@@ -1638,16 +1678,18 @@ function buildWordDoc(pid,key){
       ? (fstamp(s.submittedAt)+' · '+(pastDueAt(t,s.submittedAt)?'setelah tenggat':'sebelum tenggat')+
          (s.submitCount>1?(' · revisi '+(s.submitCount-1)+'x'):''))
       : 'belum dikirim';
-    rowsR+='<tr><td><b>'+esc(t.code)+'</b><br><span class="ket">'+esc(t.title)+'</span>'+
-        '<br><span class="ket">'+esc(kirim)+'</span></td>'+
-      '<td align="center" class="n">'+(n||'—')+'</td>'+
-      '<td>'+(s.submitCount?wRingkas(t,s):'<i style="color:#888">Peserta belum mengirim tugas ini.</i>')+'</td></tr>';
-    rowsU+='<tr><td><b>'+esc(t.code)+'</b> '+esc(wCut(t.title,34))+'</td>'+
-      '<td align="center">'+wBox()+' Ya &nbsp;'+wBox()+' Sesuaikan</td>'+
-      '<td align="center">'+wBox()+'1 &nbsp;'+wBox()+'2 &nbsp;'+wBox()+'3</td>'+
-      '<td style="height:30pt"></td></tr>';
+    baris+='<tr>'+
+      '<td rowspan="2" valign="top" style="'+TD+'"><b>'+esc(t.code)+'</b><br>'+esc(t.title)+'<br>'+
+        '<span style="'+KET+'">'+esc(kirim)+'</span></td>'+
+      '<td align="center" style="'+TD+';text-align:center">'+
+        '<p style="'+LBL+'">PENDAMPING</p><p style="'+NUM+'">'+(n||'—')+'</p></td>'+
+      '<td style="'+TD+'">'+(s.submitCount?wRingkas(t,s):'<i style="color:#888">Peserta belum mengirim tugas ini.</i>')+'</td></tr>'+
+      '<tr><td align="center" style="'+TD+';'+GREY+';height:46pt;text-align:center">'+
+        '<p style="'+LBL+'">MENTOR UTAMA</p>'+kotakIsian()+'</td>'+
+      '<td style="'+TD+';'+GREY+'"><p style="'+LBL+'">KETERANGAN MENTOR UTAMA</p></td></tr>';
   });
 
+  /* ---------- lampiran ---------- */
   let lamp='';
   terkirim.forEach(function(t,ix){
     const s=sub(t.id,pid)||{}, v=s.validation||{};
@@ -1656,60 +1698,115 @@ function buildWordDoc(pid,key){
       ? [md?md.facilitator:'', md?md.session:'', 'Tenggat '+fdate(t.due), md?md.competency:''].filter(Boolean).join(' · ')
       : [CP(t.cp).name, 'Tenggat '+fdate(t.due)].filter(Boolean).join(' · ');
 
+    const info='<table width="100%" cellspacing="0" cellpadding="0" style="'+TBL+'">'+
+      '<tr><td width="20%" style="'+TDK+'">Status</td>'+
+        '<td style="'+TDL+'">'+esc(stLabel[subStatus(t.id,pid)]||'')+'</td>'+
+        '<td width="20%" style="'+TDK+'">Nilai Pendamping</td>'+
+        '<td width="14%" style="'+TDL+';text-align:center;font-size:12pt;font-weight:bold;color:#1b3a6b">'+
+          (valScore(t,v)||'—')+'</td></tr>'+
+      '<tr><td style="'+TDK+'">Dikirim</td>'+
+        '<td style="'+TDL+'">'+fstamp(s.submittedAt)+' · '+
+          (pastDueAt(t,s.submittedAt)?'setelah tenggat':'sebelum tenggat')+
+          ((s.submitCount||1)>1?(' · revisi '+((s.submitCount||1)-1)+'x'):'')+'</td>'+
+        '<td style="'+TDK+'">Dinilai oleh</td>'+
+        '<td style="'+TDL+'">'+(v.at?(esc(v.by||'')+'<br><span style="'+KET+'">'+fstamp(v.at)+'</span>'):'—')+'</td></tr></table>';
+
+    /* apa yang dikerjakan */
     let kerja;
     if(t.scope==='mod'){
-      kerja='<table class="t2">'+(t.act||[]).map(x=>
-        '<tr><td width="32%" class="k">'+esc(x.label)+'</td><td>'+
-        ((s.answers||{})[x.id]?esc(wCut(s.answers[x.id],260)):'<i style="color:#888">belum diisi</i>')+
-        '</td></tr>').join('')+'</table>';
+      kerja='<table width="100%" cellspacing="0" cellpadding="0" style="'+TBL+'">'+
+        '<tr><th width="7%" style="'+THL+';text-align:center">No</th>'+
+        '<th width="30%" style="'+THL+'">Poin</th><th style="'+THL+'">Jawaban peserta</th></tr>'+
+        (t.act||[]).map(function(x,i){
+          const val=(s.answers||{})[x.id];
+          return '<tr><td style="'+TDL+';text-align:center">'+(i+1)+'</td>'+
+            '<td style="'+TDL+'">'+esc(x.label)+'</td>'+
+            '<td style="'+TDL+'">'+(val?esc(wCut(val,400)):'<i style="color:#888">belum diisi</i>')+'</td></tr>';
+        }).join('')+'</table>';
     }else{
-      kerja='<p>'+((s.answers||{}).work?esc(wCut(s.answers.work,900)):'<i style="color:#888">belum diisi</i>')+'</p>';
+      kerja='<table width="100%" cellspacing="0" cellpadding="0" style="'+TBL+'"><tr><td style="'+TDL+'">'+
+        ((s.answers||{}).work?esc(wCut(s.answers.work,1200)):'<i style="color:#888">belum diisi</i>')+
+        '</td></tr></table>';
     }
 
+    /* evidence */
     let ev;
-    if(t.scope==='mod'&&(t.ev||[]).length){
-      ev='<table class="t2">'+(t.ev||[]).map(function(x,i){
-        const c=(s.evid||{})[x.id]||{};
-        return '<tr><td width="5%" align="center">'+(evAda(c)?'&#10003;':'&#10007;')+'</td>'+
-          '<td width="48%">'+(i+1)+'. '+esc(x.label)+'</td>'+
-          '<td>'+(evKet(c)||'<i style="color:#888">belum ada lampiran</i>')+
-          (c.note?('<br><i>'+esc(c.note)+'</i>'):'')+'</td></tr>';
-      }).join('')+'</table>';
+    if(t.scope==='mod'){
+      ev='<table width="100%" cellspacing="0" cellpadding="0" style="'+TBL+'">'+
+        '<tr><th width="7%" style="'+THL+';text-align:center">No</th>'+
+        '<th width="34%" style="'+THL+'">Evidence yang diminta</th>'+
+        '<th width="8%" style="'+THL+';text-align:center">Ada</th>'+
+        '<th style="'+THL+'">Berkas / tautan</th></tr>'+
+        (t.ev||[]).map(function(x,i){
+          const c=(s.evid||{})[x.id]||{};
+          const ada=evAda(c);
+          let isi='<i style="color:#888">belum ada lampiran</i>';
+          if(c.path) isi=tautan(urls[c.path],c.fileName,c.size);
+          else if(safeUrl(c.link)) isi=tautan(safeUrl(c.link),c.link,0);
+          else if(c.fileName) isi=esc(c.fileName)+' <span style="color:#777">(tidak tersimpan)</span>';
+          return '<tr><td style="'+TDL+';text-align:center">'+(i+1)+'</td>'+
+            '<td style="'+TDL+'">'+esc(x.label)+'</td>'+
+            '<td style="'+TDL+';text-align:center;font-weight:bold;color:'+(ada?'#1b7a3a':'#b00')+'">'+
+              (ada?'&#10003;':'&#10007;')+'</td>'+
+            '<td style="'+TDL+'">'+isi+(c.note?('<br><span style="font-size:8pt;color:#666">'+esc(c.note)+'</span>'):'')+
+            '</td></tr>';
+        }).join('')+'</table>';
     }else{
       const c=s.answers||{};
-      ev='<p>'+(evKet(c)||'<i style="color:#888">tanpa lampiran</i>')+'</p>';
+      let rows='';
+      if(c.path) rows+='<tr><td style="'+TDK+'">Berkas</td><td style="'+TDL+'">'+tautan(urls[c.path],c.fileName,c.size)+'</td></tr>';
+      else if(c.fileName) rows+='<tr><td style="'+TDK+'">Berkas</td><td style="'+TDL+'">'+esc(c.fileName)+' <span style="color:#777">(tidak tersimpan)</span></td></tr>';
+      if(safeUrl(c.link)) rows+='<tr><td style="'+TDK+'">Tautan</td><td style="'+TDL+'">'+tautan(safeUrl(c.link),c.link,0)+'</td></tr>';
+      if(!rows) rows='<tr><td style="'+TDL+'"><i style="color:#888">tanpa lampiran</i></td></tr>';
+      ev='<table width="100%" cellspacing="0" cellpadding="0" style="'+TBL+'">'+
+        (rows.indexOf('TDK')>=0||true?'<tr><th width="20%" style="'+THL+'">Jenis</th><th style="'+THL+'">Berkas / tautan</th></tr>':'')+
+        rows+'</table>';
     }
 
-    let nilai='';
-    if(t.scope==='mod'&&(t.chk||[]).length){
-      nilai='<table class="t2">'+(t.chk||[]).map(function(x,i){
-        const cv=(v.checks||{})[x.id]||{};
-        return '<tr><td width="58%">'+(i+1)+'. '+esc(x.label)+'</td>'+
-          '<td width="7%" align="center"><b>'+(cv.score||'—')+'</b></td>'+
-          '<td>'+esc(cv.note||'')+'</td></tr>';
-      }).join('')+'</table>';
+    /* penilaian mentor pendamping */
+    let nilai;
+    if(!v.at){
+      nilai='<table width="100%" cellspacing="0" cellpadding="0" style="'+TBL+'"><tr><td style="'+TDL+'">'+
+        '<i style="color:#888">Mentor Pendamping belum menilai tugas ini.</i></td></tr></table>';
+    }else if(t.scope==='mod'){
+      nilai='<table width="100%" cellspacing="0" cellpadding="0" style="'+TBL+'">'+
+        '<tr><th width="7%" style="'+THL+';text-align:center">No</th>'+
+        '<th width="46%" style="'+THL+'">Poin cek</th>'+
+        '<th width="9%" style="'+THL+';text-align:center">Nilai</th>'+
+        '<th style="'+THL+'">Catatan</th></tr>'+
+        (t.chk||[]).map(function(x,i){
+          const cv=(v.checks||{})[x.id]||{};
+          return '<tr><td style="'+TDL+';text-align:center">'+(i+1)+'</td>'+
+            '<td style="'+TDL+'">'+esc(x.label)+'</td>'+
+            '<td style="'+TDL+';text-align:center;font-weight:bold">'+(cv.score||'—')+'</td>'+
+            '<td style="'+TDL+'">'+esc(cv.note||'')+'</td></tr>';
+        }).join('')+'</table>'+
+        '<table width="100%" cellspacing="0" cellpadding="0" style="'+TBL+'">'+
+        '<tr><td width="22%" style="'+TDK+'">Catatan</td><td style="'+TDL+'">'+
+          (v.summary?esc(v.summary):'<i style="color:#888">tidak ada</i>')+'</td></tr>'+
+        '<tr><td width="22%" style="'+TDK+'">Tindak lanjut</td><td style="'+TDL+'">'+
+          (v.follow?esc(v.follow):'<i style="color:#888">tidak ada</i>')+'</td></tr></table>';
+    }else{
+      nilai='<table width="100%" cellspacing="0" cellpadding="0" style="'+TBL+'">'+
+        '<tr><td width="22%" style="'+TDK+'">Catatan improvement</td><td style="'+TDL+'">'+
+          (v.note?esc(v.note):'<i style="color:#888">tidak ada</i>')+'</td></tr></table>';
     }
 
     lamp+='<div style="page-break-before:always">'+
-      '<p class="lamp">LAMPIRAN '+(ix+1)+' dari '+terkirim.length+' &nbsp;·&nbsp; '+esc(label)+' &nbsp;·&nbsp; '+esc(p.name)+'</p>'+
-      '<table width="100%"><tr><td><p class="jt">'+esc(t.code)+' — '+esc(t.title)+'</p>'+
-        '<p class="sub">'+esc(subline)+'</p></td>'+
-        '<td width="70" align="right"><p class="nil">'+(valScore(t,v)||'—')+'</p></td></tr></table>'+
-      '<p class="sec">APA YANG DIKERJAKAN PESERTA</p>'+kerja+
-      '<p class="sec">EVIDENCE</p>'+ev+
-      '<p class="sec">PENILAIAN MENTOR PENDAMPING'+
-        (v.at?(' &nbsp;·&nbsp; '+esc(v.by||'')+', '+fstamp(v.at)):' — belum dinilai')+'</p>'+
-      nilai+
-      (v.summary?('<p><b>Catatan.</b> '+esc(v.summary)+'</p>'):'')+
-      (v.note?('<p><b>Catatan improvement.</b> '+esc(v.note)+'</p>'):'')+
-      (v.follow?('<p><b>Tindak lanjut.</b> '+esc(v.follow)+'</p>'):'')+
+      '<p style="font-size:8pt;color:#777;margin:0 0 6pt">LAMPIRAN '+(ix+1)+' dari '+terkirim.length+
+        ' &nbsp;·&nbsp; '+esc(label)+' &nbsp;·&nbsp; '+esc(p.name)+'</p>'+
+      '<p style="font-size:13pt;font-weight:bold;color:#1b3a6b;margin:0">'+esc(t.code)+' — '+esc(t.title)+'</p>'+
+      '<p style="font-size:8.5pt;color:#666;margin:0 0 8pt">'+esc(subline)+'</p>'+
+      info+
+      '<p style="'+SEC+'">APA YANG DIKERJAKAN PESERTA</p>'+kerja+
+      '<p style="'+SEC+'">EVIDENCE</p>'+ev+
+      '<p style="'+SEC+'">PENILAIAN MENTOR PENDAMPING</p>'+nilai+
       '</div>';
   });
 
-  const kesimpulan=(a&&(a.summary||a.follow))
-    ? ('<p class="sec">KESIMPULAN MENTOR PENDAMPING UNTUK KOMPONEN INI</p>'+
-       (a.summary?('<p>'+esc(a.summary)+'</p>'):'')+
-       (a.follow?('<p><b>Tindak lanjut.</b> '+esc(a.follow)+'</p>'):''))
+  const catatanKomponen=(a&&(a.summary||a.follow))
+    ? ('<p style="margin:8pt 0 0;font-size:9pt"><b>Catatan Mentor Pendamping untuk komponen ini.</b> '+
+       esc(a.summary||'')+(a.follow?(' <i>Tindak lanjut: '+esc(a.follow)+'</i>'):'')+'</p>')
     : '';
 
   return '\ufeff<html xmlns:o="urn:schemas-microsoft-com:office:office" '+
@@ -1719,72 +1816,75 @@ function buildWordDoc(pid,key){
   '<style>@page{size:21cm 29.7cm;margin:1.4cm 1.5cm}'+
   'body{font-family:Arial,sans-serif;font-size:9.5pt;color:#111}p{margin:0 0 5pt}'+
   'table{border-collapse:collapse;width:100%}'+
-  'table.t1 td,table.t1 th{border:0.5pt solid #99a;padding:4pt 6pt;vertical-align:top;font-size:9pt}'+
-  'table.t1 th{background:#1b3a6b;color:#fff;font-size:8.5pt;text-align:left}'+
-  'table.t2 td{border-bottom:0.5pt solid #ccd;padding:3pt 5pt;vertical-align:top;font-size:9pt}'+
-  'table.t2 td.k{color:#555}'+
   '.hd{font-size:13pt;font-weight:bold;color:#1b3a6b;margin:0}'+
   '.hd2{font-size:11pt;font-weight:bold;color:#c8102e;margin:0 0 3pt}'+
   '.sec{font-size:8.5pt;font-weight:bold;color:#1b3a6b;letter-spacing:.5pt;'+
     'border-bottom:1pt solid #1b3a6b;margin:12pt 0 5pt;padding-bottom:2pt}'+
-  '.ket{font-size:8pt;color:#777}.lamp{font-size:8pt;color:#777;margin:0 0 8pt}'+
-  '.jt{font-size:12pt;font-weight:bold;color:#1b3a6b;margin:0}'+
-  '.sub{font-size:8.5pt;color:#666;margin:0 0 3pt}'+
-  '.nil{font-size:20pt;font-weight:bold;color:#1b3a6b;margin:0;text-align:right}'+
-  '.n{font-size:13pt;font-weight:bold;color:#1b3a6b}'+
-  '.big{font-size:15pt;font-weight:bold;color:#1b3a6b}'+
   '</style></head><body>'+
 
   '<p class="hd">LEAP BATCH 5 · LEMBAR VALIDASI MENTOR UTAMA</p>'+
   '<p class="hd2">'+esc(label.toUpperCase())+'</p>'+
-  '<table class="t1"><tr>'+
-    '<td width="22%"><b>Peserta</b></td><td width="30%">'+esc(p.name)+'<br>'+esc(p.store||'')+'</td>'+
-    '<td width="20%"><b>Mentor Pendamping</b><br><b>Mentor Utama</b></td>'+
-    '<td>'+esc(mn?mn.name:'belum ditetapkan')+'<br>'+esc(lead?lead.name:'belum ditetapkan')+'</td></tr></table>'+
-  '<p class="ket" style="margin-top:4pt">Dicetak '+fdate(today())+' oleh '+esc(ME.name)+
+  '<table style="'+TBL+'"><tr>'+
+    '<td width="22%" style="'+TD+'"><b>Peserta</b></td>'+
+    '<td width="30%" style="'+TD+'">'+esc(p.name)+'<br>'+esc(p.store||'')+'</td>'+
+    '<td width="20%" style="'+TD+'"><b>Mentor Pendamping</b><br><b>Mentor Utama</b></td>'+
+    '<td style="'+TD+'">'+esc(mn?mn.name:'belum ditetapkan')+'<br>'+
+      esc(lead?lead.name:'belum ditetapkan')+'</td></tr></table>'+
+  '<p style="'+KET+';margin-top:4pt">Dicetak '+fdate(today())+' oleh '+esc(ME.name)+
     ' · data per tanggal tersebut</p>'+
 
-  '<p style="margin-top:10pt"><span class="big">NILAI '+esc(label.toUpperCase())+' '+
-    (sc==null?'—':n1(sc))+'</span> <span class="ket">— '+dinilai+' dari '+tasks.length+
-    ' tugas sudah dinilai, skala 1–3</span></p>'+
+  '<p style="margin-top:10pt"><span style="font-size:15pt;font-weight:bold;color:#1b3a6b">NILAI '+
+    esc(label.toUpperCase())+' '+(sc==null?'—':n1(sc))+'</span> '+
+    '<span style="'+KET+'">— dari Mentor Pendamping, rata-rata '+dinilai+' dari '+tasks.length+
+    ' tugas yang sudah dinilai, skala 1–3</span></p>'+catatanKomponen+
 
-  '<p class="sec">RINGKASAN PENGERJAAN DAN KOMENTAR MENTOR PENDAMPING</p>'+
-  '<table class="t1"><tr><th width="22%">Tugas</th><th width="7%">Nilai</th><th>Ringkasan</th></tr>'+
-    (rowsR||'<tr><td colspan="3"><i>Belum ada tugas pada komponen ini.</i></td></tr>')+'</table>'+
-  kesimpulan+
+  '<p class="sec">PENILAIAN DAN VALIDASI</p>'+
+  '<p style="'+KET+';margin:0 0 5pt">Baris putih diisi Mentor Pendamping lewat aplikasi. '+
+    'Baris abu-abu diisi Mentor Utama: tulis nilai 1–3 di kotak (tulis angka yang sama bila setuju) dan keterangannya.</p>'+
+  '<table style="'+TBL+'">'+
+    '<tr><th width="22%" style="'+TH+'">Tugas</th>'+
+    '<th width="12%" style="'+TH+';text-align:center">Nilai</th>'+
+    '<th style="'+TH+'">Ringkasan / Keterangan</th></tr>'+
+    (baris||'<tr><td colspan="3" style="'+TD+'"><i>Belum ada tugas pada komponen ini.</i></td></tr>')+
+  '</table>'+
 
-  '<p class="sec">VALIDASI MENTOR UTAMA · mohon diisi</p>'+
-  '<table class="t1"><tr><th width="30%">Tugas</th><th width="20%">Setuju?</th>'+
-    '<th width="17%">Rating usulan</th><th>Catatan</th></tr>'+
-    (rowsU||'<tr><td colspan="4">&nbsp;</td></tr>')+'</table>'+
-  '<p style="margin-top:10pt"><b>Kesimpulan Mentor Utama untuk '+esc(label)+'</b></p>'+
-  '<table class="t1"><tr><td style="height:52pt"></td></tr></table>'+
-  '<p style="margin-top:8pt"><b>Penilaian komponen ini menurut Mentor Utama</b> &nbsp;&nbsp;'+
-    wBox()+' Sesuai &nbsp;&nbsp;'+wBox()+' Lebih tinggi &nbsp;&nbsp;'+wBox()+' Lebih rendah'+
-    ' &nbsp;&nbsp; Nilai usulan: ______</p>'+
-  '<table width="100%" style="margin-top:22pt"><tr>'+
+  '<p style="margin:0;font-size:14pt;line-height:16pt">&nbsp;</p>'+
+  '<table style="border-collapse:collapse;width:100%"><tr>'+
+    '<td width="22%" valign="middle" style="border:1.5pt solid #1b3a6b;border-right:0.5pt solid #99a;'+
+      'padding:6pt 8pt;font-size:9pt;background:#1b3a6b;color:#fff;vertical-align:middle">'+
+      '<p style="font-size:13pt;font-weight:bold;color:#fff;margin:0 0 3pt">KESIMPULAN</p>'+
+      '<p style="font-size:9pt;color:#fff;margin:0">'+esc(label)+'</p></td>'+
+    '<td style="border:1.5pt solid #1b3a6b;border-left:0.5pt solid #99a;padding:6pt 8pt;'+
+      'vertical-align:top;font-size:9pt;background:#fdf1f1;height:110pt">'+
+      '<p style="font-size:7.5pt;font-weight:bold;color:#1b3a6b;margin:0 0 2pt;letter-spacing:.4pt">'+
+      'KESIMPULAN MENTOR UTAMA</p></td></tr></table>'+
+
+  '<table width="100%" style="margin-top:28pt"><tr>'+
     '<td width="45%" style="border-top:0.5pt solid #000;padding-top:4pt">Mentor Utama<br>'+
       esc(lead?lead.name:'')+'</td><td width="10%"></td>'+
     '<td width="30%" style="border-top:0.5pt solid #000;padding-top:4pt">Tanggal</td></tr></table>'+
   lamp+'</body></html>';
 }
 
-function exportWord(pid,key){
+async function exportWord(pid,key){
   const p=P(pid); if(!p) return;
   if(COMPKEYS.indexOf(key)<0) key='mod';
+  if(BUSY) return;
+  setBusy(true);
   try{
-    const blob=new Blob([buildWordDoc(pid,key)],{type:'application/msword;charset=utf-8'});
-    const slug=function(s){ return String(s).replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,''); };
+    const urls=await signedMap(pid,compTasks(key));
+    const blob=new Blob([buildWordDoc(pid,key,urls)],{type:'application/msword;charset=utf-8'});
+    const slug=s=>String(s).replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'');
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
     a.download='LEAP5_'+slug(compLabel(key))+'_'+slug(p.name)+'_'+today()+'.doc';
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),3000);
-    toast('Dokumen '+compLabel(key)+' diunduh.');
+    toast('Dokumen '+compLabel(key)+' diunduh. Tautan berkas di dalamnya berlaku 7 hari.');
   }catch(e){
     console.error(e);
     alert('Gagal membuat dokumen: '+(e.message||e));
-  }
+  }finally{ setBusy(false); }
 }
 
 /* ============================================================
